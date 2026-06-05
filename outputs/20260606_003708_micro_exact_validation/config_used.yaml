@@ -1,0 +1,19 @@
+experiment_name: micro_exact_validation
+instance_path: data/micro/instance_manual_001
+solver: exact
+experiment_type: micro_validation
+objective:
+  mode: cost
+  emission_factor_dv: 1.0
+  emission_factor_od: 1.0
+  lambda_values:
+  - 0.0
+exact:
+  time_limit_sec: 120
+  mip_gap: 0.0
+  enable_output: false
+output:
+  root_dir: outputs
+  save_solution_details: true
+  save_charts: false
+  save_instance_snapshot: true

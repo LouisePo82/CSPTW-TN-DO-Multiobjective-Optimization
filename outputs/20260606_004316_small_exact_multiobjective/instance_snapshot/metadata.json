@@ -1,0 +1,12 @@
+{
+  "instance_id": "small_001",
+  "scale": "small",
+  "source": "controlled_synthetic",
+  "customer_count": 6,
+  "dv_count": 2,
+  "od_count": 2,
+  "adp_count": 2,
+  "tn_count": 1,
+  "purpose": "exact multi-objective ground truth",
+  "generator_version": "validated_v5"
+}

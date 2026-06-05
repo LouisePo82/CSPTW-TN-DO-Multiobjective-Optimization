@@ -1,0 +1,156 @@
+{
+  "status": "OPTIMAL",
+  "solver_name": "exact",
+  "objective_mode": "weighted",
+  "lambda_value": 0.5,
+  "cost": 24.28427622523578,
+  "emission": 77.85476672718833,
+  "objective": 0.4999999999999982,
+  "dv_distance": 21.783307199495272,
+  "od_extra_distance": 12.504845128702518,
+  "dv_routes": {
+    "DV1": [],
+    "DV2": [
+      "S",
+      "TN1",
+      "A1",
+      "T"
+    ]
+  },
+  "od_routes": {
+    "OD1": [
+      "O1",
+      "TN1",
+      "C1",
+      "D1"
+    ],
+    "OD2": [
+      "O2",
+      "S",
+      "C2",
+      "C5",
+      "D2"
+    ]
+  },
+  "assignments": {
+    "C1": {
+      "mode": "OD_HOME",
+      "driver": "OD1",
+      "pickup": "TN1"
+    },
+    "C2": {
+      "mode": "OD_HOME",
+      "driver": "OD2",
+      "pickup": "S"
+    },
+    "C3": {
+      "mode": "ADP",
+      "vehicle": "DV2",
+      "adp": "A1"
+    },
+    "C4": {
+      "mode": "ADP",
+      "vehicle": "DV2",
+      "adp": "A1"
+    },
+    "C5": {
+      "mode": "OD_HOME",
+      "driver": "OD2",
+      "pickup": "S"
+    },
+    "C6": {
+      "mode": "ADP",
+      "vehicle": "DV2",
+      "adp": "A1"
+    }
+  },
+  "arrival_times": {
+    "dv": {
+      "DV1": {},
+      "DV2": {
+        "S": 0.0,
+        "TN1": 7.0710678118654755,
+        "A1": 13.727922061357855,
+        "T": 25.783307199495272
+      }
+    },
+    "od_pickup": {
+      "OD1": {
+        "TN1": 8.071067811865476
+      },
+      "OD2": {
+        "S": 6.0
+      }
+    },
+    "od_customer": {
+      "OD1": {
+        "C1": 11.307135789365265
+      },
+      "OD2": {
+        "C2": 15.615773105863909,
+        "C5": 18.8518410833637
+      }
+    },
+    "od_destination": {
+      "OD1": 15.469413449533645,
+      "OD2": 22.08790906086349
+    },
+    "tn_completion": {
+      "TN1": 8.071067811865476
+    }
+  },
+  "vehicle_loads": {
+    "DV1": 0.0,
+    "DV2": 4.0
+  },
+  "tn_demands": {
+    "S": 2.000000000000001,
+    "TN1": 0.9999999999999993
+  },
+  "adp_loads": {
+    "DV1": {
+      "A1": 0.0,
+      "A2": 0.0
+    },
+    "DV2": {
+      "A1": 3.0,
+      "A2": 0.0
+    }
+  },
+  "runtime_sec": 0.9904521659991588,
+  "optimality_gap": 0.0,
+  "validator_pass": true,
+  "validation_errors": [],
+  "metadata": {
+    "solver_version": "SCIP 10.0.0 [LP solver: SoPlex 8.0.0]",
+    "best_bound": 0.5,
+    "raw_solver_times": {
+      "dv": {
+        "DV1": {},
+        "DV2": {
+          "S": 0.0,
+          "TN1": 7.07106781186485,
+          "A1": 13.727922061356367,
+          "T": 200.0
+        }
+      },
+      "od_customer": {
+        "OD1": {
+          "C1": 11.30713578936411
+        },
+        "OD2": {
+          "C2": 15.61577310586473,
+          "C5": 18.85184108336399
+        }
+      },
+      "od_pickup": {
+        "OD1": {
+          "TN1": 8.07106781186485
+        },
+        "OD2": {
+          "S": 6.000000000000003
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,151 @@
+{
+  "status": "OPTIMAL",
+  "solver_name": "exact",
+  "objective_mode": "weighted",
+  "lambda_value": 0.0,
+  "cost": 23.089059445460528,
+  "emission": 79.22375667475296,
+  "objective": 0.0,
+  "dv_distance": 18.110770276274835,
+  "od_extra_distance": 24.891445845928462,
+  "dv_routes": {
+    "DV1": [],
+    "DV2": [
+      "S",
+      "A1",
+      "T"
+    ]
+  },
+  "od_routes": {
+    "OD1": [
+      "O1",
+      "S",
+      "C1",
+      "D1"
+    ],
+    "OD2": [
+      "O2",
+      "S",
+      "C2",
+      "C5",
+      "D2"
+    ]
+  },
+  "assignments": {
+    "C1": {
+      "mode": "OD_HOME",
+      "driver": "OD1",
+      "pickup": "S"
+    },
+    "C2": {
+      "mode": "OD_HOME",
+      "driver": "OD2",
+      "pickup": "S"
+    },
+    "C3": {
+      "mode": "ADP",
+      "vehicle": "DV2",
+      "adp": "A1"
+    },
+    "C4": {
+      "mode": "ADP",
+      "vehicle": "DV2",
+      "adp": "A1"
+    },
+    "C5": {
+      "mode": "OD_HOME",
+      "driver": "OD2",
+      "pickup": "S"
+    },
+    "C6": {
+      "mode": "ADP",
+      "vehicle": "DV2",
+      "adp": "A1"
+    }
+  },
+  "arrival_times": {
+    "dv": {
+      "DV1": {},
+      "DV2": {
+        "S": 0.0,
+        "A1": 9.055385138137417,
+        "T": 21.110770276274835
+      }
+    },
+    "od_pickup": {
+      "OD1": {
+        "S": 6.4031242374328485
+      },
+      "OD2": {
+        "S": 6.0
+      }
+    },
+    "od_customer": {
+      "OD1": {
+        "C1": 16.622668694725736
+      },
+      "OD2": {
+        "C2": 15.615773105863909,
+        "C5": 18.8518410833637
+      }
+    },
+    "od_destination": {
+      "OD1": 20.784946354894114,
+      "OD2": 22.08790906086349
+    },
+    "tn_completion": {}
+  },
+  "vehicle_loads": {
+    "DV1": 0.0,
+    "DV2": 3.0
+  },
+  "tn_demands": {
+    "S": 3.0,
+    "TN1": 0.0
+  },
+  "adp_loads": {
+    "DV1": {
+      "A1": 0.0,
+      "A2": 0.0
+    },
+    "DV2": {
+      "A1": 3.0,
+      "A2": 0.0
+    }
+  },
+  "runtime_sec": 0.510798999996041,
+  "optimality_gap": 0.0,
+  "validator_pass": true,
+  "validation_errors": [],
+  "metadata": {
+    "solver_version": "SCIP 10.0.0 [LP solver: SoPlex 8.0.0]",
+    "best_bound": 0.0,
+    "raw_solver_times": {
+      "dv": {
+        "DV1": {},
+        "DV2": {
+          "S": 0.0,
+          "A1": 9.055385138137353,
+          "T": 200.0
+        }
+      },
+      "od_customer": {
+        "OD1": {
+          "C1": 16.6226686947266
+        },
+        "OD2": {
+          "C2": 15.615773105864719,
+          "C5": 18.85184108336398
+        }
+      },
+      "od_pickup": {
+        "OD1": {
+          "S": 6.403124237433076
+        },
+        "OD2": {
+          "S": 6.0
+        }
+      }
+    }
+  }
+}

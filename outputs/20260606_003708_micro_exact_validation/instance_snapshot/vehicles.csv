@@ -1,0 +1,3 @@
+id,type,capacity,origin,destination,earliest,latest,emission_factor
+DV1,dv,3,S,T,0,100,3.0
+OD1,od,1,O1,D1,0,20,1.0

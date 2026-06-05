@@ -1,0 +1,16 @@
+id,type,customer_type,x,y,demand,tw_start,tw_end
+S,depot_start,0,0,0,0,0,200
+T,depot_end,0,0,0,0,0,200
+TN1,tn,0,5,5,0,0,200
+A1,adp,0,9,1,0,0,200
+A2,adp,0,1,9,0,0,200
+C1,customer,1,7,6,1,0,80
+C2,customer,1,3,7,1,0,80
+C3,customer,2,10,2,1,0,200
+C4,customer,2,8,2,1,0,200
+C5,customer,3,2,9,1,0,100
+C6,customer,3,8,7,1,0,100
+O1,od_origin,0,4,5,0,0,120
+D1,od_destination,0,10,7,0,0,120
+O2,od_origin,0,0,6,0,0,120
+D2,od_destination,0,4,10,0,0,120

@@ -1,0 +1,12 @@
+{
+  "instance_id": "micro_manual_001",
+  "scale": "micro",
+  "source": "controlled_manual",
+  "customer_count": 3,
+  "dv_count": 1,
+  "od_count": 1,
+  "adp_count": 1,
+  "tn_count": 1,
+  "purpose": "manual enumeration and TN synchronization validation",
+  "generator_version": "validated_v5"
+}

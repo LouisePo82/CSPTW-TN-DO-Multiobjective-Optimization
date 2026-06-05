@@ -1,0 +1,4 @@
+parameter,value
+rho,0.5
+service_time_per_weight,1.0
+big_m_time,1000

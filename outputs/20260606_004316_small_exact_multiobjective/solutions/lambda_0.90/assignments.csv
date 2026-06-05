@@ -1,0 +1,7 @@
+customer,mode,vehicle_or_driver,pickup_or_adp
+C1,OD_HOME,OD1,TN1
+C2,OD_HOME,OD2,S
+C3,ADP,DV1,A1
+C4,ADP,DV1,A1
+C5,OD_HOME,OD2,S
+C6,ADP,DV1,A1

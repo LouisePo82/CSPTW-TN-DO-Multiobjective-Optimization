@@ -1,0 +1,5 @@
+vehicle,vehicle_type,sequence
+DV1,DV,
+DV2,DV,S -> TN1 -> A1 -> T
+OD1,OD,O1 -> TN1 -> C1 -> D1
+OD2,OD,O2 -> S -> C2 -> C5 -> D2

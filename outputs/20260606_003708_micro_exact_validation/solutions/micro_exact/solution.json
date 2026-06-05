@@ -1,0 +1,112 @@
+{
+  "status": "OPTIMAL",
+  "solver_name": "exact",
+  "objective_mode": "cost",
+  "lambda_value": 0.0,
+  "cost": 11.478708664619075,
+  "emission": 11.478708664619075,
+  "objective": 11.478708664619074,
+  "dv_distance": 11.478708664619075,
+  "od_extra_distance": 0.0,
+  "dv_routes": {
+    "DV1": [
+      "S",
+      "A1",
+      "TN1",
+      "C3",
+      "T"
+    ]
+  },
+  "od_routes": {
+    "OD1": [
+      "O1",
+      "TN1",
+      "C1",
+      "D1"
+    ]
+  },
+  "assignments": {
+    "C1": {
+      "mode": "OD_HOME",
+      "driver": "OD1",
+      "pickup": "TN1"
+    },
+    "C2": {
+      "mode": "ADP",
+      "vehicle": "DV1",
+      "adp": "A1"
+    },
+    "C3": {
+      "mode": "DV_HOME",
+      "vehicle": "DV1"
+    }
+  },
+  "arrival_times": {
+    "dv": {
+      "DV1": {
+        "S": 0.0,
+        "A1": 5.0,
+        "TN1": 8.23606797749979,
+        "C3": 10.650281539872886,
+        "T": 14.478708664619075
+      }
+    },
+    "od_pickup": {
+      "OD1": {
+        "TN1": 9.23606797749979
+      }
+    },
+    "od_customer": {
+      "OD1": {
+        "C1": 11.23606797749979
+      }
+    },
+    "od_destination": {
+      "OD1": 14.23606797749979
+    },
+    "tn_completion": {
+      "TN1": 9.23606797749979
+    }
+  },
+  "vehicle_loads": {
+    "DV1": 2.9999999999999996
+  },
+  "tn_demands": {
+    "S": 0.0,
+    "TN1": 0.9999999999999997
+  },
+  "adp_loads": {
+    "DV1": {
+      "A1": 1.0
+    }
+  },
+  "runtime_sec": 0.018561625001893844,
+  "optimality_gap": 0.0,
+  "validator_pass": true,
+  "validation_errors": [],
+  "metadata": {
+    "solver_version": "SCIP 10.0.0 [LP solver: SoPlex 8.0.0]",
+    "best_bound": 11.478708664619074,
+    "raw_solver_times": {
+      "dv": {
+        "DV1": {
+          "S": 0.0,
+          "C3": 10.650281539872594,
+          "TN1": 8.236067977499715,
+          "A1": 4.999999999999999,
+          "T": 100.0
+        }
+      },
+      "od_customer": {
+        "OD1": {
+          "C1": 17.0
+        }
+      },
+      "od_pickup": {
+        "OD1": {
+          "TN1": 15.000000000000568
+        }
+      }
+    }
+  }
+}
