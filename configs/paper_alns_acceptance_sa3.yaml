@@ -1,0 +1,26 @@
+alns:
+  simulated_annealing:
+    mode: paper
+
+    integration:
+      objective_input: scalar_F_lambda
+      acceptance_and_reward_use_same_scalar: true
+      cooling_after_each_decision: true
+
+    adaptive_rewards:
+      new_global_best: 33
+      better_current: 15
+      worse_accepted: 9
+      rejected: 0
+      equal_accepted: 0
+      same_credit_to_selected_destroy_and_repair: true
+
+    current_solution_update:
+      accepted_candidate_becomes_current: true
+      rejected_candidate_keeps_current: true
+
+    best_solution_update:
+      update_only_if_candidate_improves_best: true
+
+    multiobjective_extension:
+      separate_cost_emission_logic: false

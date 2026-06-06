@@ -409,3 +409,112 @@ class PaperTemperatureSchedule:
             ),
             "history": list(self.history),
         }
+
+# =============================================================
+# Simulated Annealing Fidelity SA-3 — Adaptive Reward Integration
+# =============================================================
+
+from alns_solver.paper_adaptive_weights import (
+    AdaptiveIterationResult,
+    PaperAdaptiveWeightController,
+)
+
+
+@dataclass
+class SimulatedAnnealingIterationResult:
+    iteration: int
+    temperature_used: float
+    temperature_after_cooling: float
+    acceptance_decision: SimulatedAnnealingDecision
+    adaptive_result: AdaptiveIterationResult
+    current_objective_before: float
+    current_objective_after: float
+    best_objective_before: float
+    best_objective_after: float
+
+
+@dataclass
+class PaperSimulatedAnnealingController:
+    """
+    Integration boundary between paper SA and paper adaptive rewards.
+
+    The same scalar objective is used by:
+    - simulated-annealing acceptance;
+    - current/best solution updates;
+    - adaptive-weight reward classification.
+
+    In the multi-objective extension this scalar is F_lambda.
+    """
+    temperature_schedule: PaperTemperatureSchedule
+    adaptive_controller: PaperAdaptiveWeightController
+    rng: random.Random
+
+    def process_iteration(
+        self,
+        *,
+        iteration: int,
+        destroy_operator: str,
+        repair_operator: str,
+        candidate_objective: float,
+        current_objective: float,
+        best_objective: float,
+    ) -> SimulatedAnnealingIterationResult:
+        temperature = (
+            self.temperature_schedule
+            .temperature_for_iteration(iteration)
+        )
+
+        decision = accept_with_simulated_annealing(
+            candidate_objective=candidate_objective,
+            current_objective=current_objective,
+            temperature=temperature,
+            rng=self.rng,
+        )
+
+        adaptive_result = (
+            self.adaptive_controller.process_iteration(
+                iteration=iteration,
+                destroy_operator=destroy_operator,
+                repair_operator=repair_operator,
+                candidate_objective=candidate_objective,
+                current_objective=current_objective,
+                best_objective=best_objective,
+                accepted=decision.accepted,
+            )
+        )
+
+        current_after = (
+            float(candidate_objective)
+            if decision.accepted
+            else float(current_objective)
+        )
+
+        best_after = min(
+            float(best_objective),
+            float(candidate_objective),
+        )
+
+        cooling_event = (
+            self.temperature_schedule
+            .cool_after_iteration(iteration)
+        )
+
+        return SimulatedAnnealingIterationResult(
+            iteration=iteration,
+            temperature_used=temperature,
+            temperature_after_cooling=float(
+                cooling_event[
+                    "temperature_after_cooling"
+                ]
+            ),
+            acceptance_decision=decision,
+            adaptive_result=adaptive_result,
+            current_objective_before=float(
+                current_objective
+            ),
+            current_objective_after=current_after,
+            best_objective_before=float(
+                best_objective
+            ),
+            best_objective_after=best_after,
+        )
