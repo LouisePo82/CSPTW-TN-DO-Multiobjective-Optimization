@@ -1,0 +1,11 @@
+alns:
+  destroy:
+    randomness_factor: 5.0
+    variants:
+      worst_customer:
+        - deterministic
+        - probabilistic
+      related_removal:
+        - deterministic
+        - probabilistic
+    operator_registry_size: 12

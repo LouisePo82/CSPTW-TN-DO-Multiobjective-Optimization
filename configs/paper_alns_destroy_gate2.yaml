@@ -1,0 +1,14 @@
+alns:
+  destroy:
+    related_removal:
+      phi_1: 5.0
+      phi_2: 9.0
+      phi_3: 1.0
+    historical_node_removal:
+      eligible_customer_types: [1, 3]
+    neighborhood_removal:
+      eligible_customer_types: [1, 3]
+      scoring: route_cost_contribution
+    node_neighborhood_removal:
+      eligible_customer_types: [1, 3]
+      seed_type: customer
