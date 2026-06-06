@@ -172,3 +172,240 @@ def accept_with_simulated_annealing(
             else "worse_candidate_rejected"
         ),
     )
+
+# =============================================================
+# Simulated Annealing Fidelity SA-2 — Temperature Schedule
+# =============================================================
+
+from dataclasses import field
+from typing import Any
+
+
+PAPER_INITIAL_RELATIVE_WORSENING = 0.5
+PAPER_INITIAL_ACCEPTANCE_PROBABILITY = 0.5
+PAPER_COOLING_RATE = 0.9994
+
+
+def paper_initial_temperature(
+    *,
+    initial_objective: float,
+    relative_worsening: float = PAPER_INITIAL_RELATIVE_WORSENING,
+    target_acceptance_probability: float = (
+        PAPER_INITIAL_ACCEPTANCE_PROBABILITY
+    ),
+) -> float:
+    """
+    Calibrate T0 so that a solution worse than the initial solution by
+    `relative_worsening` is accepted with the target probability.
+
+        target_probability
+        = exp(-(relative_worsening * initial_objective) / T0)
+
+    Therefore:
+
+        T0
+        = -(relative_worsening * initial_objective)
+          / ln(target_probability)
+
+    Paper mode fixes relative_worsening=0.5 and target probability=0.5.
+    """
+    objective = _validate_finite(
+        initial_objective,
+        "initial_objective",
+    )
+    worsening = _validate_finite(
+        relative_worsening,
+        "relative_worsening",
+    )
+    probability = _validate_finite(
+        target_acceptance_probability,
+        "target_acceptance_probability",
+    )
+
+    if objective <= 0.0:
+        raise ValueError(
+            "initial_objective must be strictly positive for "
+            "paper temperature calibration."
+        )
+
+    if worsening <= 0.0:
+        raise ValueError(
+            "relative_worsening must be strictly positive."
+        )
+
+    if not 0.0 < probability < 1.0:
+        raise ValueError(
+            "target_acceptance_probability must be strictly "
+            "between 0 and 1."
+        )
+
+    temperature = -(
+        worsening * objective
+    ) / math.log(probability)
+
+    if (
+        not math.isfinite(temperature)
+        or temperature <= 0.0
+    ):
+        raise RuntimeError(
+            "Calibrated initial temperature is invalid."
+        )
+
+    return temperature
+
+
+def cool_temperature(
+    *,
+    temperature: float,
+    cooling_rate: float = PAPER_COOLING_RATE,
+) -> float:
+    """
+    Apply geometric cooling:
+
+        T_next = cooling_rate * T_current
+    """
+    current = _validate_finite(
+        temperature,
+        "temperature",
+    )
+    rate = _validate_finite(
+        cooling_rate,
+        "cooling_rate",
+    )
+
+    if current <= 0.0:
+        raise ValueError(
+            "temperature must be strictly positive."
+        )
+
+    if not 0.0 < rate < 1.0:
+        raise ValueError(
+            "cooling_rate must be strictly between 0 and 1."
+        )
+
+    next_temperature = current * rate
+
+    if (
+        not math.isfinite(next_temperature)
+        or next_temperature <= 0.0
+    ):
+        raise RuntimeError(
+            "Cooled temperature is invalid."
+        )
+
+    return next_temperature
+
+
+@dataclass
+class PaperTemperatureSchedule:
+    """
+    Paper geometric temperature schedule.
+
+    Iteration k uses the current temperature. Cooling occurs after the
+    iteration decision, so iteration 1 uses T0.
+    """
+    initial_objective: float
+    cooling_rate: float = PAPER_COOLING_RATE
+    initial_temperature: float = field(
+        init=False
+    )
+    current_temperature: float = field(
+        init=False
+    )
+    completed_iterations: int = 0
+    history: list[dict[str, Any]] = field(
+        default_factory=list
+    )
+
+    def __post_init__(self) -> None:
+        if abs(
+            float(self.cooling_rate)
+            - PAPER_COOLING_RATE
+        ) > EPSILON:
+            raise ValueError(
+                "Paper mode fixes cooling_rate at 0.9994."
+            )
+
+        self.initial_temperature = (
+            paper_initial_temperature(
+                initial_objective=(
+                    self.initial_objective
+                )
+            )
+        )
+        self.current_temperature = (
+            self.initial_temperature
+        )
+
+    def temperature_for_iteration(
+        self,
+        iteration: int,
+    ) -> float:
+        expected_iteration = (
+            self.completed_iterations + 1
+        )
+
+        if iteration != expected_iteration:
+            raise ValueError(
+                "Temperature iterations must be consecutive. "
+                f"Expected {expected_iteration}, received {iteration}."
+            )
+
+        return float(self.current_temperature)
+
+    def cool_after_iteration(
+        self,
+        iteration: int,
+    ) -> dict[str, float | int]:
+        expected_iteration = (
+            self.completed_iterations + 1
+        )
+
+        if iteration != expected_iteration:
+            raise ValueError(
+                "Cooling iterations must be consecutive. "
+                f"Expected {expected_iteration}, received {iteration}."
+            )
+
+        used_temperature = float(
+            self.current_temperature
+        )
+        next_temperature = cool_temperature(
+            temperature=used_temperature,
+            cooling_rate=self.cooling_rate,
+        )
+
+        event = {
+            "iteration": iteration,
+            "temperature_used": used_temperature,
+            "temperature_after_cooling": (
+                next_temperature
+            ),
+            "cooling_rate": self.cooling_rate,
+        }
+
+        self.current_temperature = (
+            next_temperature
+        )
+        self.completed_iterations = iteration
+        self.history.append(event)
+
+        return event
+
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "initial_objective": (
+                float(self.initial_objective)
+            ),
+            "initial_temperature": (
+                self.initial_temperature
+            ),
+            "current_temperature": (
+                self.current_temperature
+            ),
+            "cooling_rate": self.cooling_rate,
+            "completed_iterations": (
+                self.completed_iterations
+            ),
+            "history": list(self.history),
+        }
