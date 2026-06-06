@@ -1,0 +1,25 @@
+alns:
+  simulated_annealing:
+    supported_modes:
+      - paper_simulated_annealing
+      - enhanced_simulated_annealing
+
+    default_mode: paper_simulated_annealing
+
+    paper_simulated_annealing:
+      paper_faithful: true
+      relative_worsening: 0.5
+      target_acceptance_probability: 0.5
+      cooling_rate: 0.9994
+      acceptance_formula: "exp(-(candidate-current)/temperature)"
+      random_boundary: inclusive
+      cool_after_each_iteration: true
+      objective_input: scalar_F_lambda
+      separate_cost_emission_acceptance: false
+      independent_state_per_lambda_run: true
+
+    enhanced_simulated_annealing:
+      paper_faithful: false
+      purpose: sensitivity_analysis_only
+      allow_parameter_overrides: true
+      excluded_from_main_experiments: true

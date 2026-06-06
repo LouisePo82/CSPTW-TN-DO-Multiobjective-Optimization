@@ -1,0 +1,22 @@
+alns:
+  simulated_annealing:
+    mode: paper
+    objective_input: scalar_F_lambda
+
+    initial_temperature:
+      relative_worsening: 0.5
+      target_acceptance_probability: 0.5
+      formula: "-(relative_worsening * initial_objective) / log(target_probability)"
+      require_positive_initial_objective: true
+
+    cooling:
+      method: geometric
+      cooling_rate: 0.9994
+      formula: "T_next = cooling_rate * T_current"
+      apply_after_each_iteration: true
+      iteration_1_uses_initial_temperature: true
+      require_consecutive_iterations: true
+
+    multiobjective_extension:
+      separate_cost_emission_schedules: false
+      same_lambda_within_run: true
