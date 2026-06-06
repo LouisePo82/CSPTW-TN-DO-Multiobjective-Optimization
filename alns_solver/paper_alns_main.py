@@ -549,3 +549,102 @@ def build_ml2_paper_controllers(
     )
 
     return adaptive, simulated_annealing
+
+# =============================================================
+# ALNS Main Loop Fidelity ML-3B — Roulette and Segment Boundary
+# =============================================================
+
+from alns_solver.paper_adaptive_weights import (
+    select_destroy_operator,
+    select_repair_operator,
+)
+from alns_solver.paper_operator_dispatch import (
+    PAPER_DESTROY_OPERATOR_NAMES,
+    PAPER_REPAIR_OPERATOR_NAMES,
+)
+
+
+@dataclass
+class PaperRouletteSelectionResult:
+    iteration: int
+    destroy_operator: str
+    repair_operator: str
+    destroy_probabilities: dict[str, float]
+    repair_probabilities: dict[str, float]
+    destroy_weights: dict[str, float]
+    repair_weights: dict[str, float]
+
+
+def _record_probabilities(records: dict[str, Any]) -> dict[str, float]:
+    total = sum(
+        float(record.weight)
+        for record in records.values()
+    )
+
+    if total <= 0.0:
+        raise ValueError(
+            "Operator-weight total must be positive."
+        )
+
+    return {
+        name: float(record.weight) / total
+        for name, record in records.items()
+    }
+
+
+def select_paper_operator_pair(
+    *,
+    iteration: int,
+    adaptive_state: Any,
+    rng: random.Random,
+) -> PaperRouletteSelectionResult:
+    """
+    Select one destroy and one repair operator by the validated paper
+    roulette-wheel mechanism.
+
+    F_lambda does not enter roulette normalization directly. It affects later
+    rewards, which update weights at the paper segment boundary.
+    """
+    destroy_probabilities = _record_probabilities(
+        adaptive_state.destroy_records
+    )
+    repair_probabilities = _record_probabilities(
+        adaptive_state.repair_records
+    )
+
+    destroy_operator = select_destroy_operator(
+        adaptive_state,
+        rng=rng,
+    )
+    repair_operator = select_repair_operator(
+        adaptive_state,
+        rng=rng,
+    )
+
+    if destroy_operator not in PAPER_DESTROY_OPERATOR_NAMES:
+        raise RuntimeError(
+            "Roulette selected an operator outside the paper destroy pool."
+        )
+
+    if repair_operator not in PAPER_REPAIR_OPERATOR_NAMES:
+        raise RuntimeError(
+            "Roulette selected an operator outside the paper repair pool."
+        )
+
+    return PaperRouletteSelectionResult(
+        iteration=iteration,
+        destroy_operator=destroy_operator,
+        repair_operator=repair_operator,
+        destroy_probabilities=destroy_probabilities,
+        repair_probabilities=repair_probabilities,
+        destroy_weights={
+            name: float(record.weight)
+            for name, record
+            in adaptive_state.destroy_records.items()
+        },
+        repair_weights={
+            name: float(record.weight)
+            for name, record
+            in adaptive_state.repair_records.items()
+        },
+    )

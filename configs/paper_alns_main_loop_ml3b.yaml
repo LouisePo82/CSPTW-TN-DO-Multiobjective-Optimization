@@ -1,0 +1,33 @@
+alns:
+  main_loop:
+    gate: ML-3B
+    paper_faithful: true
+    enhanced: false
+
+    roulette:
+      destroy_pool_size: 12
+      repair_pool_size: 6
+      separate_pool_normalization: true
+      selection_probability: weight_divided_by_pool_total
+      fixed_seed_reproducible: true
+
+    segment:
+      length: 300
+      reaction_factor: 0.1
+      boundary_order:
+        - record_iteration_300_reward_and_use
+        - apply_equation_48
+        - reset_segment_statistics
+      iteration_301_uses_updated_weights: true
+
+    multiobjective_extension:
+      scalar: F_lambda
+      affects_reward_classification: true
+      affects_adaptive_weights_indirectly: true
+      enters_roulette_formula_directly: false
+
+    excluded:
+      experiment_runs: true
+      lambda_sweep: true
+      full_candidate_generation_300_times: true
+      enhanced_operator_selection: true
