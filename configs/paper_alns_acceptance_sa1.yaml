@@ -1,0 +1,21 @@
+alns:
+  simulated_annealing:
+    mode: paper
+    objective_input: scalar_F_lambda
+    minimization: true
+
+    acceptance:
+      better_candidate: always_accept
+      equal_candidate: always_accept
+      worse_candidate_probability: "exp(-(candidate-current)/temperature)"
+      random_boundary: inclusive
+      decision_rule: "u <= acceptance_probability"
+
+    validation:
+      require_finite_objectives: true
+      require_positive_finite_temperature: true
+      allow_probability_underflow_to_zero: true
+
+    multiobjective_extension:
+      separate_cost_emission_acceptance: false
+      same_lambda_within_run: true
