@@ -355,3 +355,715 @@ def paper_worst_adp_removal(
             "average_saving_eq46": selected.average_saving,
         },
     )
+
+# =============================================================
+# Destroy Fidelity Gate 2
+# Related / Historical / Neighborhood / Node-Neighborhood
+# =============================================================
+
+@dataclass
+class RelatednessScore:
+    seed_customer: str
+    customer: str
+    normalized_distance: float
+    normalized_demand_difference: float
+    type_similarity: float
+    total_score: float
+
+
+@dataclass
+class HistoricalRemovalScore:
+    customer: str
+    current_position_cost: float
+    best_historical_position_cost: float
+    score: float
+
+
+@dataclass
+class NeighborhoodRemovalScore:
+    customer: str
+    route_type: str
+    route_id: str
+    route_cost_before: float
+    route_cost_after: float
+    contribution: float
+
+
+def _eligible_type_13_customers(
+    state: ALNSSolutionState,
+    instance: dict,
+) -> list[str]:
+    """
+    Customers eligible for the paper's historical and neighborhood operators:
+    Type 1 and Type 3 only.
+    """
+    return sorted(
+        customer
+        for customer in state.assignments
+        if int(
+            instance["nodes"][customer]["customer_type"]
+        ) in {1, 3}
+    )
+
+
+def _customer_demand(
+    instance: dict,
+    customer: str,
+) -> float:
+    return float(
+        instance["nodes"][customer]["demand"]
+    )
+
+
+def _max_customer_distance(
+    instance: dict,
+    customers: list[str],
+) -> float:
+    maximum = 0.0
+
+    for i in customers:
+        for j in customers:
+            maximum = max(
+                maximum,
+                float(instance["distance"][i][j]),
+            )
+
+    return maximum
+
+
+def _demand_range(
+    instance: dict,
+    customers: list[str],
+) -> float:
+    demands = [
+        _customer_demand(instance, customer)
+        for customer in customers
+    ]
+
+    if not demands:
+        return 0.0
+
+    return max(demands) - min(demands)
+
+
+def _type_similarity_term(
+    state: ALNSSolutionState,
+    instance: dict,
+    customer_i: str,
+    customer_j: str,
+) -> float:
+    """
+    Paper Eq. (47) TS_ij term.
+
+    - two Type-2 customers assigned to the same ADP: 0.0
+    - two Type-3 customers assigned to the same ADP: 0.5
+    - otherwise: 1.0
+    """
+    type_i = int(
+        instance["nodes"][customer_i]["customer_type"]
+    )
+    type_j = int(
+        instance["nodes"][customer_j]["customer_type"]
+    )
+
+    assignment_i = state.assignments[customer_i]
+    assignment_j = state.assignments[customer_j]
+
+    same_adp = (
+        assignment_i.get("mode") == "ADP"
+        and assignment_j.get("mode") == "ADP"
+        and assignment_i.get("adp")
+        == assignment_j.get("adp")
+    )
+
+    if type_i == 2 and type_j == 2 and same_adp:
+        return 0.0
+
+    if type_i == 3 and type_j == 3 and same_adp:
+        return 0.5
+
+    return 1.0
+
+
+def relatedness_eq47(
+    state: ALNSSolutionState,
+    instance: dict,
+    seed_customer: str,
+    customer: str,
+    *,
+    phi_1: float = 5.0,
+    phi_2: float = 9.0,
+    phi_3: float = 1.0,
+) -> RelatednessScore:
+    """
+    Paper Eq. (47):
+
+        S(i,j)
+        = phi_1 * c_ij / max(c)
+        + phi_2 * |d_i-d_j| / (max(d)-min(d))
+        + phi_3 * TS_ij
+
+    Lower score means more related.
+    """
+    active_customers = sorted(state.assignments)
+
+    if seed_customer not in state.assignments:
+        raise ValueError(
+            f"Seed customer {seed_customer} is not active."
+        )
+
+    if customer not in state.assignments:
+        raise ValueError(
+            f"Customer {customer} is not active."
+        )
+
+    max_distance = _max_customer_distance(
+        instance,
+        active_customers,
+    )
+
+    demand_range = _demand_range(
+        instance,
+        active_customers,
+    )
+
+    raw_distance = float(
+        instance["distance"][seed_customer][customer]
+    )
+
+    normalized_distance = (
+        raw_distance / max_distance
+        if max_distance > 1e-12
+        else 0.0
+    )
+
+    demand_difference = abs(
+        _customer_demand(instance, seed_customer)
+        - _customer_demand(instance, customer)
+    )
+
+    normalized_demand_difference = (
+        demand_difference / demand_range
+        if demand_range > 1e-12
+        else 0.0
+    )
+
+    type_similarity = _type_similarity_term(
+        state,
+        instance,
+        seed_customer,
+        customer,
+    )
+
+    total_score = (
+        phi_1 * normalized_distance
+        + phi_2 * normalized_demand_difference
+        + phi_3 * type_similarity
+    )
+
+    return RelatednessScore(
+        seed_customer=seed_customer,
+        customer=customer,
+        normalized_distance=normalized_distance,
+        normalized_demand_difference=(
+            normalized_demand_difference
+        ),
+        type_similarity=type_similarity,
+        total_score=total_score,
+    )
+
+
+def paper_related_removal(
+    state: ALNSSolutionState,
+    instance: dict,
+    removal_count: int,
+    *,
+    seed: int | None = None,
+    seed_customer: str | None = None,
+    candidate_customers: Iterable[str] | None = None,
+    phi_1: float = 5.0,
+    phi_2: float = 9.0,
+    phi_3: float = 1.0,
+) -> DestroyResult:
+    """
+    Deterministic paper Related Removal using Eq. (47).
+    """
+    if removal_count <= 0:
+        raise ValueError(
+            "removal_count must be positive."
+        )
+
+    active = set(state.assignments)
+
+    candidates = (
+        sorted(active)
+        if candidate_customers is None
+        else sorted(
+            active & set(candidate_customers)
+        )
+    )
+
+    if removal_count > len(candidates):
+        raise ValueError(
+            "removal_count exceeds candidate count."
+        )
+
+    rng = random.Random(seed)
+
+    if seed_customer is None:
+        seed_customer = rng.choice(candidates)
+
+    if seed_customer not in candidates:
+        raise ValueError(
+            "seed_customer is not an active candidate."
+        )
+
+    scores = [
+        relatedness_eq47(
+            state,
+            instance,
+            seed_customer,
+            customer,
+            phi_1=phi_1,
+            phi_2=phi_2,
+            phi_3=phi_3,
+        )
+        for customer in candidates
+    ]
+
+    selected = [
+        score.customer
+        for score in sorted(
+            scores,
+            key=lambda score: (
+                score.total_score,
+                score.customer,
+            ),
+        )[:removal_count]
+    ]
+
+    destroyed = state.copy()
+
+    for customer in selected:
+        remove_customer(
+            state=destroyed,
+            instance=instance,
+            customer_id=customer,
+        )
+
+    destroyed.register_operator_event(
+        operator_type="destroy",
+        operator_name="paper_related_removal",
+        details={
+            "seed_customer": seed_customer,
+            "removed_customers": list(selected),
+            "phi_1": phi_1,
+            "phi_2": phi_2,
+            "phi_3": phi_3,
+            "scores": {
+                score.customer: score.total_score
+                for score in scores
+            },
+        },
+    )
+
+    return DestroyResult(
+        operator_name="paper_related_removal",
+        state=destroyed,
+        removed_customers=selected,
+    )
+
+
+def _route_distance_value(
+    route: list[str],
+    instance: dict,
+) -> float:
+    if len(route) < 2:
+        return 0.0
+
+    return sum(
+        float(instance["distance"][route[index]][route[index + 1]])
+        for index in range(len(route) - 1)
+    )
+
+
+def _find_customer_route(
+    state: ALNSSolutionState,
+    customer: str,
+) -> tuple[str, str, list[str]]:
+    assignment = state.assignments[customer]
+    mode = assignment.get("mode")
+
+    if mode == "DV_HOME":
+        vehicle = assignment["vehicle"]
+        return (
+            "DV",
+            vehicle,
+            list(state.dv_routes[vehicle]),
+        )
+
+    if mode == "OD_HOME":
+        driver = assignment["driver"]
+        return (
+            "OD",
+            driver,
+            list(state.od_routes[driver]),
+        )
+
+    raise ValueError(
+        "Historical and neighborhood operators only "
+        "support Type 1/3 home-delivery customers."
+    )
+
+
+def _remove_customer_from_route_copy(
+    route: list[str],
+    customer: str,
+) -> list[str]:
+    return [
+        node
+        for node in route
+        if node != customer
+    ]
+
+
+def current_position_cost(
+    state: ALNSSolutionState,
+    instance: dict,
+    customer: str,
+) -> float:
+    """
+    Current marginal route contribution:
+
+        c(prev,i) + c(i,next) - c(prev,next)
+    """
+    _, _, route = _find_customer_route(
+        state,
+        customer,
+    )
+
+    if customer not in route:
+        raise ValueError(
+            f"{customer} is not present in its assigned route."
+        )
+
+    position = route.index(customer)
+
+    if position == 0 or position == len(route) - 1:
+        raise ValueError(
+            "Customer cannot be a route endpoint."
+        )
+
+    prev_node = route[position - 1]
+    next_node = route[position + 1]
+
+    return (
+        float(instance["distance"][prev_node][customer])
+        + float(instance["distance"][customer][next_node])
+        - float(instance["distance"][prev_node][next_node])
+    )
+
+
+def paper_historical_node_removal(
+    state: ALNSSolutionState,
+    instance: dict,
+    removal_count: int,
+    *,
+    best_historical_position_costs: dict[str, float],
+) -> DestroyResult:
+    """
+    Paper Historical Node Removal.
+
+    Score:
+        current position cost - best historical position cost
+
+    Only Type 1 and Type 3 customers are eligible.
+    """
+    if removal_count <= 0:
+        raise ValueError(
+            "removal_count must be positive."
+        )
+
+    candidates = _eligible_type_13_customers(
+        state,
+        instance,
+    )
+
+    if removal_count > len(candidates):
+        raise ValueError(
+            "removal_count exceeds eligible customers."
+        )
+
+    missing = [
+        customer
+        for customer in candidates
+        if customer not in best_historical_position_costs
+    ]
+
+    if missing:
+        raise ValueError(
+            "Missing historical costs for: "
+            f"{missing}"
+        )
+
+    scores = []
+
+    for customer in candidates:
+        current = current_position_cost(
+            state,
+            instance,
+            customer,
+        )
+
+        best_historical = float(
+            best_historical_position_costs[customer]
+        )
+
+        scores.append(
+            HistoricalRemovalScore(
+                customer=customer,
+                current_position_cost=current,
+                best_historical_position_cost=(
+                    best_historical
+                ),
+                score=current - best_historical,
+            )
+        )
+
+    selected = [
+        score.customer
+        for score in sorted(
+            scores,
+            key=lambda score: (
+                -score.score,
+                score.customer,
+            ),
+        )[:removal_count]
+    ]
+
+    destroyed = state.copy()
+
+    for customer in selected:
+        remove_customer(
+            state=destroyed,
+            instance=instance,
+            customer_id=customer,
+        )
+
+    destroyed.register_operator_event(
+        operator_type="destroy",
+        operator_name="paper_historical_node_removal",
+        details={
+            "removed_customers": list(selected),
+            "scores": {
+                score.customer: {
+                    "current": score.current_position_cost,
+                    "best_historical": (
+                        score.best_historical_position_cost
+                    ),
+                    "difference": score.score,
+                }
+                for score in scores
+            },
+        },
+    )
+
+    return DestroyResult(
+        operator_name="paper_historical_node_removal",
+        state=destroyed,
+        removed_customers=selected,
+    )
+
+
+def neighborhood_contribution(
+    state: ALNSSolutionState,
+    instance: dict,
+    customer: str,
+) -> NeighborhoodRemovalScore:
+    """
+    Paper Neighborhood Removal contribution:
+
+        f_R - f_{R \\ {j}}
+
+    evaluated on the customer's current route.
+    """
+    route_type, route_id, route = _find_customer_route(
+        state,
+        customer,
+    )
+
+    route_after = _remove_customer_from_route_copy(
+        route,
+        customer,
+    )
+
+    route_cost_before = _route_distance_value(
+        route,
+        instance,
+    )
+
+    route_cost_after = _route_distance_value(
+        route_after,
+        instance,
+    )
+
+    return NeighborhoodRemovalScore(
+        customer=customer,
+        route_type=route_type,
+        route_id=route_id,
+        route_cost_before=route_cost_before,
+        route_cost_after=route_cost_after,
+        contribution=(
+            route_cost_before - route_cost_after
+        ),
+    )
+
+
+def paper_neighborhood_removal(
+    state: ALNSSolutionState,
+    instance: dict,
+    removal_count: int,
+) -> DestroyResult:
+    """
+    Paper Neighborhood Removal.
+
+    Remove Type 1/3 customers with the largest route-cost contribution.
+    """
+    if removal_count <= 0:
+        raise ValueError(
+            "removal_count must be positive."
+        )
+
+    candidates = _eligible_type_13_customers(
+        state,
+        instance,
+    )
+
+    if removal_count > len(candidates):
+        raise ValueError(
+            "removal_count exceeds eligible customers."
+        )
+
+    scores = [
+        neighborhood_contribution(
+            state,
+            instance,
+            customer,
+        )
+        for customer in candidates
+    ]
+
+    selected = [
+        score.customer
+        for score in sorted(
+            scores,
+            key=lambda score: (
+                -score.contribution,
+                score.customer,
+            ),
+        )[:removal_count]
+    ]
+
+    destroyed = state.copy()
+
+    for customer in selected:
+        remove_customer(
+            state=destroyed,
+            instance=instance,
+            customer_id=customer,
+        )
+
+    destroyed.register_operator_event(
+        operator_type="destroy",
+        operator_name="paper_neighborhood_removal",
+        details={
+            "removed_customers": list(selected),
+            "contributions": {
+                score.customer: score.contribution
+                for score in scores
+            },
+        },
+    )
+
+    return DestroyResult(
+        operator_name="paper_neighborhood_removal",
+        state=destroyed,
+        removed_customers=selected,
+    )
+
+
+def paper_node_neighborhood_removal(
+    state: ALNSSolutionState,
+    instance: dict,
+    removal_count: int,
+    *,
+    seed: int | None = None,
+    seed_customer: str | None = None,
+) -> DestroyResult:
+    """
+    Paper Node-Neighborhood Removal.
+
+    1. Randomly select one Type 1/3 customer as seed.
+    2. Remove the seed.
+    3. Remove the q-1 geographically nearest eligible Type 1/3 customers.
+    """
+    if removal_count <= 0:
+        raise ValueError(
+            "removal_count must be positive."
+        )
+
+    candidates = _eligible_type_13_customers(
+        state,
+        instance,
+    )
+
+    if removal_count > len(candidates):
+        raise ValueError(
+            "removal_count exceeds eligible customers."
+        )
+
+    rng = random.Random(seed)
+
+    if seed_customer is None:
+        seed_customer = rng.choice(candidates)
+
+    if seed_customer not in candidates:
+        raise ValueError(
+            "seed_customer must be an active Type 1/3 customer."
+        )
+
+    ordered = sorted(
+        candidates,
+        key=lambda customer: (
+            float(
+                instance["distance"][seed_customer][customer]
+            ),
+            customer,
+        ),
+    )
+
+    selected = ordered[:removal_count]
+
+    destroyed = state.copy()
+
+    for customer in selected:
+        remove_customer(
+            state=destroyed,
+            instance=instance,
+            customer_id=customer,
+        )
+
+    destroyed.register_operator_event(
+        operator_type="destroy",
+        operator_name="paper_node_neighborhood_removal",
+        details={
+            "seed_customer": seed_customer,
+            "removed_customers": list(selected),
+        },
+    )
+
+    return DestroyResult(
+        operator_name="paper_node_neighborhood_removal",
+        state=destroyed,
+        removed_customers=selected,
+    )
