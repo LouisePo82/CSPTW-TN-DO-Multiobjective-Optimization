@@ -323,3 +323,128 @@ def select_repair_operator(
         state.repair_records,
         rng=rng,
     )
+
+# =============================================================
+# Adaptive Weights Fidelity AW-3 — Segment Controller
+# =============================================================
+
+
+@dataclass
+class AdaptiveIterationResult:
+    iteration: int
+    destroy_operator: str
+    repair_operator: str
+    event: str
+    reward: float
+    update_applied: bool
+    update_event: dict[str, Any] | None
+    completed_updates: int
+
+
+@dataclass
+class PaperAdaptiveWeightController:
+    """
+    Iteration-level controller for the paper adaptive-weight mechanism.
+
+    The controller consumes one scalar objective. In the multi-objective
+    extension, this scalar is F_lambda. It does not inspect cost and emission
+    separately.
+    """
+    state: PaperAdaptiveWeightState
+    last_iteration: int = 0
+    iteration_history: list[dict[str, Any]] = field(
+        default_factory=list
+    )
+
+    def process_iteration(
+        self,
+        *,
+        iteration: int,
+        destroy_operator: str,
+        repair_operator: str,
+        candidate_objective: float,
+        current_objective: float,
+        best_objective: float,
+        accepted: bool,
+    ) -> AdaptiveIterationResult:
+        expected_iteration = self.last_iteration + 1
+
+        if iteration != expected_iteration:
+            raise ValueError(
+                "Iterations must be processed consecutively. "
+                f"Expected {expected_iteration}, received {iteration}."
+            )
+
+        event, reward = classify_paper_reward(
+            candidate_objective=candidate_objective,
+            current_objective=current_objective,
+            best_objective=best_objective,
+            accepted=accepted,
+        )
+
+        # The boundary iteration belongs to the segment being closed.
+        # Therefore its use and reward are recorded before Eq. (48).
+        self.state.record_operator_result(
+            destroy_operator=destroy_operator,
+            repair_operator=repair_operator,
+            reward=reward,
+        )
+
+        update_applied = self.state.should_update(
+            iteration
+        )
+        update_event = None
+
+        if update_applied:
+            update_event = self.state.update_weights(
+                iteration=iteration
+            )
+
+        self.last_iteration = iteration
+
+        history_entry = {
+            "iteration": iteration,
+            "destroy_operator": destroy_operator,
+            "repair_operator": repair_operator,
+            "candidate_objective": float(
+                candidate_objective
+            ),
+            "current_objective": float(
+                current_objective
+            ),
+            "best_objective": float(
+                best_objective
+            ),
+            "accepted": bool(accepted),
+            "event": event,
+            "reward": reward,
+            "update_applied": update_applied,
+            "completed_updates": (
+                self.state.completed_updates
+            ),
+        }
+        self.iteration_history.append(
+            history_entry
+        )
+
+        return AdaptiveIterationResult(
+            iteration=iteration,
+            destroy_operator=destroy_operator,
+            repair_operator=repair_operator,
+            event=event,
+            reward=reward,
+            update_applied=update_applied,
+            update_event=update_event,
+            completed_updates=(
+                self.state.completed_updates
+            ),
+        )
+
+    def snapshot(self) -> dict[str, Any]:
+        return {
+            "last_iteration": self.last_iteration,
+            "adaptive_state": self.state.snapshot(),
+            "iteration_history": list(
+                self.iteration_history
+            ),
+        }
