@@ -1,0 +1,13 @@
+alns:
+  local_search:
+    mode: paper
+    selection: first_improvement
+    swap_operators:
+      - swap_intra_classic_classic
+      - swap_inter_classic_classic
+      - swap_inter_classic_crowd
+      - swap_inter_crowd_crowd
+    paper_constraints:
+      adp_swap_enabled: false
+      cross_fleet_customer_types: [1]
+      crowd_crowd_customer_types: [1]

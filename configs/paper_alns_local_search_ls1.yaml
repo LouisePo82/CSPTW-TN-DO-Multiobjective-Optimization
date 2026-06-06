@@ -1,0 +1,13 @@
+alns:
+  local_search:
+    mode: paper
+    selection: first_improvement
+    move_operators:
+      - move_intra_classic_classic
+      - move_inter_classic_classic
+      - move_inter_classic_crowd
+      - move_inter_crowd_classic
+    paper_constraints:
+      intra_route_od_enabled: false
+      cross_fleet_customer_types: [1]
+      adp_relocation_enabled: false

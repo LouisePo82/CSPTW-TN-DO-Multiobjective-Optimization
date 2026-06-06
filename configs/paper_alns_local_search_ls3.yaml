@@ -1,0 +1,18 @@
+alns:
+  local_search:
+    mode: paper
+    delta_ls: 0.1
+    threshold_rule: "working_objective <= (1 + delta_ls) * best_objective"
+    threshold_boundary: inclusive
+    acceptance: first_improvement
+    restart_same_operator_after_improvement: true
+    restart_full_operator_sequence: false
+    operator_order:
+      - move_intra_classic_classic
+      - move_inter_classic_classic
+      - move_inter_classic_crowd
+      - move_inter_crowd_classic
+      - swap_intra_classic_classic
+      - swap_inter_classic_classic
+      - swap_inter_classic_crowd
+      - swap_inter_crowd_crowd
