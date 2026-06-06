@@ -1,0 +1,20 @@
+alns:
+  initial_solution:
+    fidelity_gate_is3:
+      seeds: 100
+      require_all_valid: true
+      independent_checks:
+        - customer_coverage
+        - mode_eligibility
+        - assignment_route_consistency
+        - route_endpoints
+        - dv_capacity
+        - od_capacity_by_customer_count
+        - adp_compatibility
+        - tn_single_dv_supply
+        - tn_synchronization
+        - fixed_tn_preservation
+        - trace_consistency
+        - objective_recomputation
+        - shared_validator
+      tolerance: 1.0e-8
