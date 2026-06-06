@@ -1,0 +1,23 @@
+alns:
+  local_search:
+    supported_modes:
+      - paper_local_search
+      - enhanced_local_search
+
+    default_mode: paper_local_search
+
+    paper_local_search:
+      paper_faithful: true
+      delta_ls: 0.1
+      threshold_boundary: inclusive
+      selection: first_improvement
+      restart_same_operator: true
+      restart_full_operator_sequence: false
+      operator_order: paper_listed_order
+
+    enhanced_local_search:
+      paper_faithful: false
+      selection: first_improvement
+      restart_same_operator: true
+      restart_full_operator_sequence: true
+      max_cycles: 100
