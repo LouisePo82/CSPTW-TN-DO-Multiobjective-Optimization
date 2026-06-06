@@ -1,0 +1,9 @@
+alns:
+  initial_solution:
+    fidelity_gate_is2:
+      seeds: 100
+      require_all_valid: true
+      minimum_unique_phase1_orders: 2
+      minimum_unique_phase1_assignment_signatures: 2
+      minimum_unique_complete_solution_signatures: 2
+      report_objective_diversity_separately: true
