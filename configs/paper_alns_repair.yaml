@@ -1,0 +1,12 @@
+alns:
+  repair:
+    perturbation_factor_tau: 0.275
+    strategy_2_mode: paper_random_dv
+    regret_values: [2, 3]
+    operators:
+      - best_insertion
+      - perturbed_best_insertion
+      - regret_2
+      - perturbed_regret_2
+      - regret_3
+      - perturbed_regret_3
