@@ -1,0 +1,17 @@
+alns:
+  initial_solution:
+    supported_modes:
+      - paper_algorithm_1
+      - enhanced_initial_solution
+
+    default_mode: paper_algorithm_1
+
+    paper_algorithm_1:
+      paper_faithful: true
+      strategy_2_mode: paper_random_dv
+      preserve_fixed_tn_positions: true
+
+    enhanced_initial_solution:
+      paper_faithful: false
+      generic_multi_mode_greedy: true
+      max_attempts: 100
