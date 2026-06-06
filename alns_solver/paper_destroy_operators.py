@@ -1067,3 +1067,518 @@ def paper_node_neighborhood_removal(
         state=destroyed,
         removed_customers=selected,
     )
+
+# =============================================================
+# Destroy Fidelity Gate 3
+# Deterministic / probabilistic ranked operators and registry
+# =============================================================
+
+@dataclass
+class WorstCustomerScore:
+    customer: str
+    objective_before: float
+    objective_after: float
+    saving: float
+
+
+def _rank_biased_index(
+    candidate_count: int,
+    rng: random.Random,
+    *,
+    randomness_factor: float = 5.0,
+) -> int:
+    """
+    Paper rank-based probabilistic selection:
+
+        floor(U(0,1)^p * |L|)
+
+    where p is the randomness factor. With p > 1, lower ranks are favored.
+    """
+    if candidate_count <= 0:
+        raise ValueError(
+            "candidate_count must be positive."
+        )
+
+    if randomness_factor <= 0:
+        raise ValueError(
+            "randomness_factor must be positive."
+        )
+
+    raw_index = int(
+        (rng.random() ** randomness_factor)
+        * candidate_count
+    )
+
+    return min(
+        raw_index,
+        candidate_count - 1,
+    )
+
+
+def worst_customer_scores(
+    state: ALNSSolutionState,
+    instance: dict,
+    *,
+    lambda_value: float,
+    cost_bounds: tuple[float, float] | None,
+    emission_bounds: tuple[float, float] | None,
+    emission_factors: tuple[float, float],
+    candidate_customers: Iterable[str] | None = None,
+) -> list[WorstCustomerScore]:
+    """
+    Compute objective saving for removing each currently assigned customer.
+    """
+    active_customers = set(state.assignments)
+
+    candidates = (
+        sorted(active_customers)
+        if candidate_customers is None
+        else sorted(
+            active_customers
+            & set(candidate_customers)
+        )
+    )
+
+    if not candidates:
+        raise ValueError(
+            "No active customer is available for scoring."
+        )
+
+    objective_before = _objective_value(
+        state,
+        instance,
+        lambda_value=lambda_value,
+        cost_bounds=cost_bounds,
+        emission_bounds=emission_bounds,
+        emission_factors=emission_factors,
+    )
+
+    scores = []
+
+    for customer in candidates:
+        candidate_state = state.copy()
+
+        remove_customer(
+            state=candidate_state,
+            instance=instance,
+            customer_id=customer,
+        )
+
+        objective_after = _objective_value(
+            candidate_state,
+            instance,
+            lambda_value=lambda_value,
+            cost_bounds=cost_bounds,
+            emission_bounds=emission_bounds,
+            emission_factors=emission_factors,
+        )
+
+        scores.append(
+            WorstCustomerScore(
+                customer=customer,
+                objective_before=objective_before,
+                objective_after=objective_after,
+                saving=(
+                    objective_before - objective_after
+                ),
+            )
+        )
+
+    return sorted(
+        scores,
+        key=lambda score: (
+            -score.saving,
+            score.customer,
+        ),
+    )
+
+
+def paper_worst_customer_removal(
+    state: ALNSSolutionState,
+    instance: dict,
+    removal_count: int,
+    *,
+    lambda_value: float,
+    cost_bounds: tuple[float, float] | None,
+    emission_bounds: tuple[float, float] | None,
+    emission_factors: tuple[float, float] = (1.0, 1.0),
+    candidate_customers: Iterable[str] | None = None,
+) -> DestroyResult:
+    """
+    Deterministic paper Worst Customer Removal.
+
+    Recompute the ranked list after every removal, then remove the current
+    highest-saving customer.
+    """
+    if removal_count <= 0:
+        raise ValueError(
+            "removal_count must be positive."
+        )
+
+    destroyed = state.copy()
+    removed_customers = []
+    score_history = []
+
+    for _ in range(removal_count):
+        scores = worst_customer_scores(
+            destroyed,
+            instance,
+            lambda_value=lambda_value,
+            cost_bounds=cost_bounds,
+            emission_bounds=emission_bounds,
+            emission_factors=emission_factors,
+            candidate_customers=candidate_customers,
+        )
+
+        selected = scores[0]
+
+        remove_customer(
+            state=destroyed,
+            instance=instance,
+            customer_id=selected.customer,
+        )
+
+        removed_customers.append(
+            selected.customer
+        )
+
+        score_history.append(
+            {
+                "selected_customer": selected.customer,
+                "saving": selected.saving,
+                "ranked_scores": {
+                    score.customer: score.saving
+                    for score in scores
+                },
+            }
+        )
+
+    destroyed.register_operator_event(
+        operator_type="destroy",
+        operator_name="paper_worst_customer_removal",
+        details={
+            "removed_customers": list(
+                removed_customers
+            ),
+            "selection_mode": "deterministic",
+            "score_history": score_history,
+        },
+    )
+
+    return DestroyResult(
+        operator_name="paper_worst_customer_removal",
+        state=destroyed,
+        removed_customers=removed_customers,
+    )
+
+
+def paper_probabilistic_worst_customer_removal(
+    state: ALNSSolutionState,
+    instance: dict,
+    removal_count: int,
+    *,
+    seed: int,
+    randomness_factor: float = 5.0,
+    lambda_value: float,
+    cost_bounds: tuple[float, float] | None,
+    emission_bounds: tuple[float, float] | None,
+    emission_factors: tuple[float, float] = (1.0, 1.0),
+    candidate_customers: Iterable[str] | None = None,
+) -> DestroyResult:
+    """
+    Probabilistic paper Worst Customer Removal.
+
+    Customers remain ranked from worst to best, but the selected rank follows:
+
+        floor(U^p * |L|)
+
+    with paper randomness factor p = 5.
+    """
+    if removal_count <= 0:
+        raise ValueError(
+            "removal_count must be positive."
+        )
+
+    rng = random.Random(seed)
+    destroyed = state.copy()
+    removed_customers = []
+    selection_history = []
+
+    for _ in range(removal_count):
+        scores = worst_customer_scores(
+            destroyed,
+            instance,
+            lambda_value=lambda_value,
+            cost_bounds=cost_bounds,
+            emission_bounds=emission_bounds,
+            emission_factors=emission_factors,
+            candidate_customers=candidate_customers,
+        )
+
+        selected_rank = _rank_biased_index(
+            len(scores),
+            rng,
+            randomness_factor=randomness_factor,
+        )
+
+        selected = scores[selected_rank]
+
+        remove_customer(
+            state=destroyed,
+            instance=instance,
+            customer_id=selected.customer,
+        )
+
+        removed_customers.append(
+            selected.customer
+        )
+
+        selection_history.append(
+            {
+                "selected_rank": selected_rank,
+                "selected_customer": selected.customer,
+                "saving": selected.saving,
+                "ranked_customers": [
+                    score.customer
+                    for score in scores
+                ],
+            }
+        )
+
+    destroyed.register_operator_event(
+        operator_type="destroy",
+        operator_name=(
+            "paper_probabilistic_worst_customer_removal"
+        ),
+        details={
+            "removed_customers": list(
+                removed_customers
+            ),
+            "selection_mode": "probabilistic",
+            "randomness_factor": randomness_factor,
+            "seed": seed,
+            "selection_history": selection_history,
+        },
+    )
+
+    return DestroyResult(
+        operator_name=(
+            "paper_probabilistic_worst_customer_removal"
+        ),
+        state=destroyed,
+        removed_customers=removed_customers,
+    )
+
+
+def paper_probabilistic_related_removal(
+    state: ALNSSolutionState,
+    instance: dict,
+    removal_count: int,
+    *,
+    seed: int,
+    seed_customer: str | None = None,
+    randomness_factor: float = 5.0,
+    candidate_customers: Iterable[str] | None = None,
+    phi_1: float = 5.0,
+    phi_2: float = 9.0,
+    phi_3: float = 1.0,
+) -> DestroyResult:
+    """
+    Probabilistic paper Related Removal.
+
+    Relatedness follows Eq. (47), then rank selection follows floor(U^p |L|).
+    The seed is removed first. Remaining removals are chosen probabilistically
+    from the relatedness-ranked list.
+    """
+    if removal_count <= 0:
+        raise ValueError(
+            "removal_count must be positive."
+        )
+
+    active = set(state.assignments)
+
+    candidates = (
+        sorted(active)
+        if candidate_customers is None
+        else sorted(
+            active & set(candidate_customers)
+        )
+    )
+
+    if removal_count > len(candidates):
+        raise ValueError(
+            "removal_count exceeds candidate count."
+        )
+
+    rng = random.Random(seed)
+
+    if seed_customer is None:
+        seed_customer = rng.choice(candidates)
+
+    if seed_customer not in candidates:
+        raise ValueError(
+            "seed_customer is not an active candidate."
+        )
+
+    destroyed = state.copy()
+    removed_customers = []
+
+    remove_customer(
+        state=destroyed,
+        instance=instance,
+        customer_id=seed_customer,
+    )
+
+    removed_customers.append(
+        seed_customer
+    )
+
+    selection_history = [
+        {
+            "selected_rank": 0,
+            "selected_customer": seed_customer,
+            "reason": "seed",
+        }
+    ]
+
+    while len(removed_customers) < removal_count:
+        remaining_candidates = [
+            customer
+            for customer in candidates
+            if customer in destroyed.assignments
+        ]
+
+        if not remaining_candidates:
+            raise RuntimeError(
+                "No related-removal candidates remain."
+            )
+
+        scores = [
+            relatedness_eq47(
+                state,
+                instance,
+                seed_customer,
+                customer,
+                phi_1=phi_1,
+                phi_2=phi_2,
+                phi_3=phi_3,
+            )
+            for customer in remaining_candidates
+        ]
+
+        ranked_scores = sorted(
+            scores,
+            key=lambda score: (
+                score.total_score,
+                score.customer,
+            ),
+        )
+
+        selected_rank = _rank_biased_index(
+            len(ranked_scores),
+            rng,
+            randomness_factor=randomness_factor,
+        )
+
+        selected = ranked_scores[selected_rank]
+
+        remove_customer(
+            state=destroyed,
+            instance=instance,
+            customer_id=selected.customer,
+        )
+
+        removed_customers.append(
+            selected.customer
+        )
+
+        selection_history.append(
+            {
+                "selected_rank": selected_rank,
+                "selected_customer": selected.customer,
+                "relatedness": selected.total_score,
+                "ranked_customers": [
+                    score.customer
+                    for score in ranked_scores
+                ],
+            }
+        )
+
+    destroyed.register_operator_event(
+        operator_type="destroy",
+        operator_name=(
+            "paper_probabilistic_related_removal"
+        ),
+        details={
+            "seed_customer": seed_customer,
+            "removed_customers": list(
+                removed_customers
+            ),
+            "randomness_factor": randomness_factor,
+            "seed": seed,
+            "phi_1": phi_1,
+            "phi_2": phi_2,
+            "phi_3": phi_3,
+            "selection_history": selection_history,
+        },
+    )
+
+    return DestroyResult(
+        operator_name=(
+            "paper_probabilistic_related_removal"
+        ),
+        state=destroyed,
+        removed_customers=removed_customers,
+    )
+
+
+PAPER_DESTROY_OPERATOR_REGISTRY = {
+    "random_customer_removal": (
+        "generic_random_customer_removal"
+    ),
+    "worst_customer_removal_deterministic": (
+        "paper_worst_customer_removal"
+    ),
+    "worst_customer_removal_probabilistic": (
+        "paper_probabilistic_worst_customer_removal"
+    ),
+    "route_removal": (
+        "paper_route_removal"
+    ),
+    "random_adp_removal": (
+        "generic_random_adp_removal"
+    ),
+    "worst_adp_removal": (
+        "paper_worst_adp_removal"
+    ),
+    "random_tn_removal": (
+        "generic_random_tn_removal"
+    ),
+    "related_removal_deterministic": (
+        "paper_related_removal"
+    ),
+    "related_removal_probabilistic": (
+        "paper_probabilistic_related_removal"
+    ),
+    "historical_node_removal": (
+        "paper_historical_node_removal"
+    ),
+    "neighborhood_removal": (
+        "paper_neighborhood_removal"
+    ),
+    "node_neighborhood_removal": (
+        "paper_node_neighborhood_removal"
+    ),
+}
+
+
+def paper_destroy_operator_names() -> list[str]:
+    """
+    Return the selectable destroy operator concepts expected by Table 10.
+
+    Worst-customer and related removal each have deterministic and
+    probabilistic variants, resulting in 12 selectable registry entries.
+    """
+    return list(
+        PAPER_DESTROY_OPERATOR_REGISTRY.keys()
+    )
