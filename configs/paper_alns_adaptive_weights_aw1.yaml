@@ -1,0 +1,18 @@
+alns:
+  adaptive_weights:
+    mode: paper
+    segment_length: 300
+    reaction_factor: 0.1
+    initial_weight: 1.0
+    rewards:
+      new_global_best: 33
+      better_current: 15
+      worse_accepted: 9
+      rejected: 0
+    unused_operator_policy: preserve_old_weight
+    reset_segment_statistics_after_update: true
+    objective_input:
+      type: scalar
+      paper_baseline: transportation_cost
+      multiobjective_extension: normalized_weighted_objective_F_lambda
+      separate_cost_emission_rewards: false

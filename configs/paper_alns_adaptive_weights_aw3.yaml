@@ -1,0 +1,26 @@
+alns:
+  adaptive_weights:
+    mode: paper
+
+    segment_controller:
+      require_consecutive_iterations: true
+      segment_length: 300
+      boundary_iteration_included_before_update: true
+      update_iterations: [300, 600]
+      reset_after_update: true
+
+    reward_priority:
+      - new_global_best
+      - better_current
+      - worse_accepted
+      - rejected
+
+    operator_credit:
+      same_reward_to_selected_destroy_and_repair: true
+      rejected_iteration_counts_as_use: true
+
+    multiobjective_extension:
+      objective_input: normalized_weighted_objective_F_lambda
+      scalar_only: true
+      separate_cost_emission_rewards: false
+      independent_adaptive_state_per_lambda_run: true

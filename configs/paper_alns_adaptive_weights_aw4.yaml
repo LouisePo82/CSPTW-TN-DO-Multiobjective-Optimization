@@ -1,0 +1,28 @@
+alns:
+  adaptive_weights:
+    supported_modes:
+      - paper_adaptive_weights
+      - enhanced_adaptive_weights
+
+    default_mode: paper_adaptive_weights
+
+    paper_adaptive_weights:
+      paper_faithful: true
+      segment_length: 300
+      reaction_factor: 0.1
+      initial_weight: 1.0
+      rewards:
+        new_global_best: 33
+        better_current: 15
+        worse_accepted: 9
+        rejected: 0
+      unused_operator_policy: preserve_old_weight
+      objective_input: scalar_F_lambda
+      separate_cost_emission_rewards: false
+      independent_state_per_lambda_run: true
+
+    enhanced_adaptive_weights:
+      paper_faithful: false
+      purpose: sensitivity_analysis_only
+      allow_parameter_overrides: true
+      excluded_from_main_experiments: true
