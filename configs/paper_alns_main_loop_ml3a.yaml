@@ -1,0 +1,28 @@
+alns:
+  main_loop:
+    gate: ML-3A
+    paper_faithful: true
+    enhanced: false
+
+    destroy_pool_size: 12
+    repair_pool_size: 6
+
+    paper_constants:
+      randomness_factor: 5.0
+      relatedness_weights: [5.0, 9.0, 1.0]
+      perturbation_factor: 0.275
+      strategy_2_mode: paper_random_dv
+
+    historical_node_removal:
+      metric: marginal_route_distance
+      requires_explicit_best_history: true
+      use_scalar_F_lambda: false
+
+    objective_extension:
+      objective_based_operators_use: scalar_F_lambda
+      non_objective_operator_logic_unchanged: true
+
+    excluded:
+      enhanced_operators: true
+      fallback_to_other_operator: true
+      silent_historical_defaults: true
