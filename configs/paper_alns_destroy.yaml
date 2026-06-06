@@ -1,0 +1,6 @@
+alns:
+  destroy:
+    route_removal:
+      mode: paper_dv_only
+    worst_adp_removal:
+      scoring: average_saving_eq46
