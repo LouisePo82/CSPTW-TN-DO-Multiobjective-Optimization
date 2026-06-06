@@ -1,0 +1,10 @@
+alns:
+  initial_solution:
+    mode: paper_algorithm_1
+    phases:
+      - type1_to_od
+      - stabilize_active_tns
+      - best_insert_remaining
+    preserve_fixed_tn_positions: true
+    od_capacity_unit: customer_count
+    dv_capacity_unit: demand_weight
