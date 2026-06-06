@@ -1,0 +1,23 @@
+alns:
+  main_loop:
+    gate: ML-1
+    scope: candidate_generation_only
+    paper_faithful: true
+    enhanced: false
+
+    controlled_pipeline:
+      destroy_operator: route_removal
+      repair_operator: best_insertion
+      local_search_mode: paper_local_search
+
+    objective:
+      input: scalar_F_lambda
+      shared_core_only: true
+      separate_cost_emission_decisions: false
+
+    excluded_from_ml1:
+      roulette_selection: true
+      simulated_annealing_acceptance: true
+      adaptive_reward_update: true
+      temperature_cooling: true
+      full_iteration_loop: true
