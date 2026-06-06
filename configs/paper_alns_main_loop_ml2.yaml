@@ -1,0 +1,40 @@
+alns:
+  main_loop:
+    gate: ML-2
+    paper_faithful: true
+    enhanced: false
+
+    candidate_pipeline:
+      source: ML-1
+      destroy_operator: route_removal
+      repair_operator: best_insertion
+      local_search_mode: paper_local_search
+
+    acceptance:
+      mode: paper_simulated_annealing
+      objective_input: scalar_F_lambda
+      apply_once: true
+
+    state_transition:
+      accepted_candidate_becomes_current: true
+      rejected_candidate_preserves_current: true
+      candidate_improving_best_updates_best: true
+      copy_states_on_transition: true
+
+    adaptive_rewards:
+      source: paper_sa_controller
+      new_global_best: 33
+      better_current: 15
+      worse_accepted: 9
+      rejected_or_equal: 0
+      apply_once: true
+
+    cooling:
+      source: paper_sa_controller
+      after_each_iteration: true
+      apply_once: true
+
+    excluded_from_ml2:
+      roulette_operator_selection: true
+      full_multi_iteration_loop: true
+      enhanced_component_modes: true

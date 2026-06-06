@@ -287,3 +287,265 @@ def build_ml1_paper_initial_state(
         strategy_2_mode="paper_random_dv",
     )
     return result.state
+
+# =============================================================
+# ALNS Main Loop Fidelity ML-2 — Acceptance and State Transition
+# =============================================================
+
+import random
+
+from alns_solver.acceptance_factory import (
+    PAPER_SIMULATED_ANNEALING_MODE,
+    build_simulated_annealing,
+)
+from alns_solver.adaptive_weights_factory import (
+    PAPER_ADAPTIVE_WEIGHTS_MODE,
+    build_adaptive_weights,
+)
+
+
+@dataclass
+class PaperALNSIterationTransitionResult:
+    iteration: int
+    candidate_pipeline: PaperALNSCandidatePipelineResult
+    acceptance_result: Any
+
+    current_state_before: ALNSSolutionState
+    current_state_after: ALNSSolutionState
+    best_state_before: ALNSSolutionState
+    best_state_after: ALNSSolutionState
+
+    current_objective_before: float
+    current_objective_after: float
+    best_objective_before: float
+    best_objective_after: float
+
+    accepted: bool
+    reward_event: str
+    reward: float
+
+    temperature_used: float
+    temperature_after_cooling: float
+
+    metadata: dict[str, Any]
+
+
+def apply_paper_sa_transition(
+    *,
+    iteration: int,
+    candidate_pipeline: PaperALNSCandidatePipelineResult,
+    current_state: ALNSSolutionState,
+    best_state: ALNSSolutionState,
+    current_objective: float,
+    best_objective: float,
+    sa_controller: Any,
+) -> PaperALNSIterationTransitionResult:
+    """
+    Apply the validated paper SA/adaptive controller to one ML-1 candidate.
+
+    This function synchronizes the objective transition returned by the SA
+    controller with the corresponding ALNSSolutionState objects.
+    """
+    current_before = current_state.copy()
+    best_before = best_state.copy()
+
+    acceptance_result = sa_controller.process_iteration(
+        iteration=iteration,
+        destroy_operator=(
+            candidate_pipeline.destroy_operator
+        ),
+        repair_operator=(
+            candidate_pipeline.repair_operator
+        ),
+        candidate_objective=(
+            candidate_pipeline.candidate_objective
+        ),
+        current_objective=current_objective,
+        best_objective=best_objective,
+    )
+
+    accepted = bool(
+        acceptance_result.acceptance_decision.accepted
+    )
+
+    if accepted:
+        current_after = (
+            candidate_pipeline.candidate_state.copy()
+        )
+    else:
+        current_after = current_state.copy()
+
+    candidate_is_new_best = (
+        candidate_pipeline.candidate_objective
+        < float(best_objective)
+    )
+
+    if candidate_is_new_best:
+        best_after = (
+            candidate_pipeline.candidate_state.copy()
+        )
+    else:
+        best_after = best_state.copy()
+
+    expected_current_after = (
+        candidate_pipeline.candidate_objective
+        if accepted
+        else float(current_objective)
+    )
+    expected_best_after = min(
+        float(best_objective),
+        candidate_pipeline.candidate_objective,
+    )
+
+    if abs(
+        acceptance_result.current_objective_after
+        - expected_current_after
+    ) > 1e-12:
+        raise RuntimeError(
+            "SA objective transition disagrees with main-loop "
+            "current-state transition."
+        )
+
+    if abs(
+        acceptance_result.best_objective_after
+        - expected_best_after
+    ) > 1e-12:
+        raise RuntimeError(
+            "SA objective transition disagrees with main-loop "
+            "best-state transition."
+        )
+
+    return PaperALNSIterationTransitionResult(
+        iteration=iteration,
+        candidate_pipeline=candidate_pipeline,
+        acceptance_result=acceptance_result,
+        current_state_before=current_before,
+        current_state_after=current_after,
+        best_state_before=best_before,
+        best_state_after=best_after,
+        current_objective_before=float(
+            current_objective
+        ),
+        current_objective_after=float(
+            acceptance_result.current_objective_after
+        ),
+        best_objective_before=float(
+            best_objective
+        ),
+        best_objective_after=float(
+            acceptance_result.best_objective_after
+        ),
+        accepted=accepted,
+        reward_event=(
+            acceptance_result.adaptive_result.event
+        ),
+        reward=float(
+            acceptance_result.adaptive_result.reward
+        ),
+        temperature_used=float(
+            acceptance_result.temperature_used
+        ),
+        temperature_after_cooling=float(
+            acceptance_result.temperature_after_cooling
+        ),
+        metadata={
+            "paper_faithful": True,
+            "enhanced": False,
+            "objective_input": "scalar_F_lambda",
+            "acceptance_formula": (
+                "exp(-(candidate-current)/temperature)"
+            ),
+            "adaptive_reward_source": (
+                "paper_sa_controller"
+            ),
+            "cooling_source": (
+                "paper_sa_controller"
+            ),
+            "duplicate_reward_update": False,
+            "duplicate_temperature_cooling": False,
+        },
+    )
+
+
+def run_one_paper_alns_iteration_ml2(
+    current_state: ALNSSolutionState,
+    best_state: ALNSSolutionState,
+    instance: dict,
+    *,
+    iteration: int,
+    current_objective: float,
+    best_objective: float,
+    lambda_value: float,
+    cost_bounds: tuple[float, float] | None,
+    emission_bounds: tuple[float, float] | None,
+    emission_factors: tuple[float, float] = (3.0, 1.0),
+    destroy_seed: int = 42,
+    strategy_2_seed: int | None = None,
+    sa_controller: Any,
+) -> PaperALNSIterationTransitionResult:
+    """
+    Run one controlled ML-2 iteration.
+
+    Candidate generation remains the ML-1 paper pipeline:
+    Route Removal -> Best Insertion -> paper Local Search.
+
+    Acceptance, adaptive reward, and cooling are delegated exactly once to
+    the validated paper SA controller.
+    """
+    candidate = run_one_paper_alns_candidate_pipeline(
+        current_state,
+        instance,
+        best_objective=best_objective,
+        lambda_value=lambda_value,
+        cost_bounds=cost_bounds,
+        emission_bounds=emission_bounds,
+        emission_factors=emission_factors,
+        destroy_seed=destroy_seed,
+        strategy_2_seed=strategy_2_seed,
+    )
+
+    return apply_paper_sa_transition(
+        iteration=iteration,
+        candidate_pipeline=candidate,
+        current_state=current_state,
+        best_state=best_state,
+        current_objective=current_objective,
+        best_objective=best_objective,
+        sa_controller=sa_controller,
+    )
+
+
+def build_ml2_paper_controllers(
+    *,
+    initial_objective: float,
+    destroy_operator_names: tuple[str, ...] = (
+        "route_removal",
+    ),
+    repair_operator_names: tuple[str, ...] = (
+        "best_insertion",
+    ),
+    seed: int = 42,
+):
+    """
+    Construct paper adaptive weights first, then paper SA.
+
+    Each call returns fresh independent state for one lambda run.
+    """
+    adaptive = build_adaptive_weights(
+        mode=PAPER_ADAPTIVE_WEIGHTS_MODE,
+        destroy_operator_names=(
+            destroy_operator_names
+        ),
+        repair_operator_names=(
+            repair_operator_names
+        ),
+    )
+
+    simulated_annealing = build_simulated_annealing(
+        mode=PAPER_SIMULATED_ANNEALING_MODE,
+        initial_objective=initial_objective,
+        adaptive_controller=adaptive.controller,
+        rng=random.Random(seed),
+    )
+
+    return adaptive, simulated_annealing
