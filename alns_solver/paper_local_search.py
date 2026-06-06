@@ -781,3 +781,322 @@ def swap_inter_crowd_crowd(
                         )
 
     return _no_improvement(name, state, base)
+
+# =============================================================
+# Local Search Fidelity LS-3 — Paper Search Controller
+# =============================================================
+
+from collections.abc import Callable
+
+
+PAPER_LOCAL_SEARCH_OPERATOR_ORDER = (
+    "move_intra_classic_classic",
+    "move_inter_classic_classic",
+    "move_inter_classic_crowd",
+    "move_inter_crowd_classic",
+    "swap_intra_classic_classic",
+    "swap_inter_classic_classic",
+    "swap_inter_classic_crowd",
+    "swap_inter_crowd_crowd",
+)
+
+PAPER_LOCAL_SEARCH_DELTA = 0.1
+
+
+@dataclass
+class PaperLocalSearchResult:
+    state: ALNSSolutionState
+    eligible: bool
+    improved: bool
+    base_objective: float
+    final_objective: float
+    best_objective: float
+    delta_ls: float
+    operator_order: tuple[str, ...]
+    operator_calls: dict[str, int]
+    accepted_moves: list[dict[str, Any]]
+    exhausted_operators: list[str]
+
+
+def paper_local_search_eligible(
+    working_objective: float,
+    best_objective: float,
+    *,
+    delta_ls: float = PAPER_LOCAL_SEARCH_DELTA,
+    tolerance: float = EPSILON,
+) -> bool:
+    """
+    Algorithm-2 eligibility rule:
+
+        f(Sw) <= (1 + delta_ls) * f(S*)
+
+    The boundary is inclusive, exactly as written in the paper.
+    """
+    if delta_ls < 0:
+        raise ValueError("delta_ls must be non-negative.")
+
+    if best_objective < 0:
+        raise ValueError(
+            "best_objective must be non-negative for the paper gap rule."
+        )
+
+    upper_bound = (
+        1.0 + float(delta_ls)
+    ) * float(best_objective)
+
+    return (
+        float(working_objective)
+        <= upper_bound + float(tolerance)
+    )
+
+
+def paper_local_search_registry() -> tuple[
+    tuple[str, Callable[..., LocalSearchMoveResult]],
+    ...,
+]:
+    """
+    Paper-listed order: four move operators followed by four swap operators.
+    """
+    return (
+        (
+            "move_intra_classic_classic",
+            move_intra_classic_classic,
+        ),
+        (
+            "move_inter_classic_classic",
+            move_inter_classic_classic,
+        ),
+        (
+            "move_inter_classic_crowd",
+            move_inter_classic_crowd,
+        ),
+        (
+            "move_inter_crowd_classic",
+            move_inter_crowd_classic,
+        ),
+        (
+            "swap_intra_classic_classic",
+            swap_intra_classic_classic,
+        ),
+        (
+            "swap_inter_classic_classic",
+            swap_inter_classic_classic,
+        ),
+        (
+            "swap_inter_classic_crowd",
+            swap_inter_classic_crowd,
+        ),
+        (
+            "swap_inter_crowd_crowd",
+            swap_inter_crowd_crowd,
+        ),
+    )
+
+
+def run_paper_local_search(
+    working_state: ALNSSolutionState,
+    instance: dict,
+    *,
+    best_objective: float,
+    lambda_value: float,
+    cost_bounds: tuple[float, float] | None,
+    emission_bounds: tuple[float, float] | None,
+    emission_factors: tuple[float, float] = (1.0, 1.0),
+    delta_ls: float = PAPER_LOCAL_SEARCH_DELTA,
+    operator_registry: tuple[
+        tuple[str, Callable[..., LocalSearchMoveResult]],
+        ...,
+    ] | None = None,
+    max_restarts_per_operator: int = 10_000,
+) -> PaperLocalSearchResult:
+    """
+    Paper-faithful local-search controller.
+
+    1. Check Algorithm-2 threshold.
+    2. Visit operators in paper-listed order.
+    3. For one operator, accept its first strict improvement.
+    4. Restart the same operator after every accepted improvement.
+    5. Move to the next operator only when the current operator is exhausted.
+    6. Stop after the final operator is exhausted.
+
+    The paper does not state that the complete eight-operator sequence restarts
+    from operator 1, so paper mode performs one ordered pass while exhausting
+    each operator independently.
+    """
+    if max_restarts_per_operator <= 0:
+        raise ValueError(
+            "max_restarts_per_operator must be positive."
+        )
+
+    current = working_state.copy()
+    base_objective = _objective(
+        current,
+        instance,
+        lambda_value=lambda_value,
+        cost_bounds=cost_bounds,
+        emission_bounds=emission_bounds,
+        emission_factors=emission_factors,
+    )
+
+    registry = (
+        paper_local_search_registry()
+        if operator_registry is None
+        else operator_registry
+    )
+
+    names = tuple(
+        name
+        for name, _ in registry
+    )
+
+    if names != PAPER_LOCAL_SEARCH_OPERATOR_ORDER:
+        raise ValueError(
+            "Paper-mode operator registry must follow the "
+            "paper-listed eight-operator order."
+        )
+
+    calls = {
+        name: 0
+        for name in names
+    }
+    accepted_moves: list[dict[str, Any]] = []
+    exhausted: list[str] = []
+
+    if not paper_local_search_eligible(
+        base_objective,
+        best_objective,
+        delta_ls=delta_ls,
+    ):
+        return PaperLocalSearchResult(
+            state=current,
+            eligible=False,
+            improved=False,
+            base_objective=base_objective,
+            final_objective=base_objective,
+            best_objective=float(best_objective),
+            delta_ls=float(delta_ls),
+            operator_order=names,
+            operator_calls=calls,
+            accepted_moves=accepted_moves,
+            exhausted_operators=exhausted,
+        )
+
+    for name, operator in registry:
+        accepted_for_operator = 0
+
+        while True:
+            calls[name] += 1
+
+            result = operator(
+                current,
+                instance,
+                lambda_value=lambda_value,
+                cost_bounds=cost_bounds,
+                emission_bounds=emission_bounds,
+                emission_factors=emission_factors,
+            )
+
+            if result.operator_name != name:
+                raise RuntimeError(
+                    f"Operator registry name {name} does not match "
+                    f"result name {result.operator_name}."
+                )
+
+            if not result.improved:
+                exhausted.append(name)
+                break
+
+            if not (
+                result.final_objective
+                < result.base_objective - EPSILON
+            ):
+                raise RuntimeError(
+                    f"{name} returned improved=True without a "
+                    "strict objective decrease."
+                )
+
+            expected_current = _objective(
+                current,
+                instance,
+                lambda_value=lambda_value,
+                cost_bounds=cost_bounds,
+                emission_bounds=emission_bounds,
+                emission_factors=emission_factors,
+            )
+
+            if abs(
+                result.base_objective
+                - expected_current
+            ) > 1e-8:
+                raise RuntimeError(
+                    f"{name} evaluated a stale base objective."
+                )
+
+            validated = result.state.to_core_solution(
+                instance=instance,
+                lambda_value=lambda_value,
+                objective_mode="weighted",
+                cost_bounds=cost_bounds,
+                emission_bounds=emission_bounds,
+                emission_factors=emission_factors,
+                require_complete=True,
+            )
+
+            if not validated.validator_pass:
+                raise RuntimeError(
+                    f"{name} returned an invalid accepted state: "
+                    f"{validated.validation_errors}"
+                )
+
+            accepted_for_operator += 1
+
+            if (
+                accepted_for_operator
+                > max_restarts_per_operator
+            ):
+                raise RuntimeError(
+                    f"{name} exceeded the restart safety limit."
+                )
+
+            accepted_moves.append(
+                {
+                    "operator": name,
+                    "base_objective": (
+                        result.base_objective
+                    ),
+                    "final_objective": (
+                        result.final_objective
+                    ),
+                    "details": result.details,
+                }
+            )
+            current = result.state
+
+            # Paper rule: re-implement this same operator.
+            # The while-loop therefore restarts from its first candidate.
+
+    final_objective = _objective(
+        current,
+        instance,
+        lambda_value=lambda_value,
+        cost_bounds=cost_bounds,
+        emission_bounds=emission_bounds,
+        emission_factors=emission_factors,
+    )
+
+    return PaperLocalSearchResult(
+        state=current,
+        eligible=True,
+        improved=(
+            final_objective
+            < base_objective - EPSILON
+        ),
+        base_objective=base_objective,
+        final_objective=final_objective,
+        best_objective=float(best_objective),
+        delta_ls=float(delta_ls),
+        operator_order=names,
+        operator_calls=calls,
+        accepted_moves=accepted_moves,
+        exhausted_operators=exhausted,
+    )
