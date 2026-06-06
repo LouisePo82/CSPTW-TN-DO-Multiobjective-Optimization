@@ -1,0 +1,19 @@
+alns:
+  adaptive_weights:
+    mode: paper
+
+    selection:
+      method: roulette_wheel
+      probability_rule: "weight_i / sum_pool_weights"
+      destroy_pool_normalization: independent
+      repair_pool_normalization: independent
+      deterministic_with_fixed_seed: true
+
+    validation:
+      require_positive_weights: true
+      require_finite_weights: true
+      reject_empty_pool: true
+
+    multiobjective_extension:
+      changes_selection_formula: false
+      note: "F_lambda affects rewards and therefore weights, not roulette normalization."

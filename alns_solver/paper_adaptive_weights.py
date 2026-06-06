@@ -205,3 +205,121 @@ def classify_paper_reward(
     if accepted and candidate > current + tolerance:
         return "worse_accepted", PAPER_REWARD_WORSE_ACCEPTED
     return "rejected", PAPER_REWARD_REJECTED
+
+# =============================================================
+# Adaptive Weights Fidelity AW-2 — Roulette-Wheel Selection
+# =============================================================
+
+import math
+import random
+
+
+def operator_probabilities(
+    records: dict[str, OperatorWeightRecord],
+) -> dict[str, float]:
+    """
+    Normalize one operator pool independently:
+
+        p_i = weight_i / sum_j(weight_j)
+
+    Destroy and repair pools must be passed separately.
+    """
+    if not records:
+        raise ValueError(
+            "Operator pool must not be empty."
+        )
+
+    total_weight = 0.0
+
+    for name, record in records.items():
+        weight = float(record.weight)
+
+        if not math.isfinite(weight):
+            raise ValueError(
+                f"Weight for {name} must be finite."
+            )
+
+        if weight <= 0.0:
+            raise ValueError(
+                f"Weight for {name} must be positive."
+            )
+
+        total_weight += weight
+
+    if not math.isfinite(total_weight):
+        raise ValueError(
+            "Total operator weight must be finite."
+        )
+
+    if total_weight <= 0.0:
+        raise ValueError(
+            "Total operator weight must be positive."
+        )
+
+    probabilities = {
+        name: float(record.weight) / total_weight
+        for name, record in records.items()
+    }
+
+    probability_sum = sum(
+        probabilities.values()
+    )
+
+    if abs(probability_sum - 1.0) > 1e-12:
+        raise RuntimeError(
+            "Operator probabilities do not sum to 1."
+        )
+
+    return probabilities
+
+
+def select_operator_roulette(
+    records: dict[str, OperatorWeightRecord],
+    *,
+    rng: random.Random,
+) -> str:
+    """
+    Select one operator from one independently normalized pool.
+
+    Iteration order is deterministic because the state preserves insertion
+    order. With the same seed and the same weights, the selected sequence is
+    reproducible.
+    """
+    probabilities = operator_probabilities(
+        records
+    )
+
+    threshold = rng.random()
+    cumulative = 0.0
+    names = list(probabilities)
+
+    for name in names:
+        cumulative += probabilities[name]
+
+        if threshold < cumulative:
+            return name
+
+    # Numerical safety for values extremely close to 1.
+    return names[-1]
+
+
+def select_destroy_operator(
+    state: PaperAdaptiveWeightState,
+    *,
+    rng: random.Random,
+) -> str:
+    return select_operator_roulette(
+        state.destroy_records,
+        rng=rng,
+    )
+
+
+def select_repair_operator(
+    state: PaperAdaptiveWeightState,
+    *,
+    rng: random.Random,
+) -> str:
+    return select_operator_roulette(
+        state.repair_records,
+        rng=rng,
+    )
