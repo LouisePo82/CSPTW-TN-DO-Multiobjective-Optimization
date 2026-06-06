@@ -498,3 +498,323 @@ def route_removal(
             "route_id": selected_id,
         },
     )
+
+# =============================================================
+# Gate 4B — Facility-level destroy operators
+# =============================================================
+
+def _active_adp_pairs(
+    state: ALNSSolutionState,
+) -> list[tuple[str, str]]:
+    """
+    Return active (DV, ADP) pairs that currently carry at least one parcel.
+    """
+    pairs = {
+        (
+            assignment["vehicle"],
+            assignment["adp"],
+        )
+        for assignment in state.assignments.values()
+        if assignment.get("mode") == "ADP"
+    }
+    return sorted(pairs)
+
+
+def _customers_at_adp_pair(
+    state: ALNSSolutionState,
+    vehicle: str,
+    adp: str,
+) -> list[str]:
+    return sorted(
+        customer
+        for customer, assignment in state.assignments.items()
+        if assignment.get("mode") == "ADP"
+        and assignment.get("vehicle") == vehicle
+        and assignment.get("adp") == adp
+    )
+
+
+def random_adp_removal(
+    state: ALNSSolutionState,
+    instance: dict,
+    *,
+    seed: int | None = None,
+    vehicle: str | None = None,
+    adp: str | None = None,
+) -> DestroyResult:
+    """
+    Paper destroy operator: Random ADP Removal.
+
+    Select one active DV-ADP pair and remove every customer parcel assigned
+    through that pair. The ADP node is removed from the selected DV route
+    once its final parcel is removed.
+    """
+    candidates = _active_adp_pairs(state)
+
+    if vehicle is not None:
+        candidates = [
+            pair for pair in candidates
+            if pair[0] == vehicle
+        ]
+
+    if adp is not None:
+        candidates = [
+            pair for pair in candidates
+            if pair[1] == adp
+        ]
+
+    if not candidates:
+        raise ValueError(
+            "No active DV-ADP pair matches the removal request."
+        )
+
+    rng = random.Random(seed)
+    selected_vehicle, selected_adp = rng.choice(candidates)
+
+    destroyed = state.copy()
+
+    removed_customers = _customers_at_adp_pair(
+        destroyed,
+        selected_vehicle,
+        selected_adp,
+    )
+
+    for customer_id in list(removed_customers):
+        remove_customer(
+            state=destroyed,
+            instance=instance,
+            customer_id=customer_id,
+        )
+
+    destroyed.register_operator_event(
+        operator_type="destroy",
+        operator_name="random_adp_removal",
+        details={
+            "seed": seed,
+            "vehicle": selected_vehicle,
+            "adp": selected_adp,
+            "removed_customers": list(removed_customers),
+        },
+    )
+
+    return DestroyResult(
+        operator_name="random_adp_removal",
+        state=destroyed,
+        removed_customers=removed_customers,
+        removed_route={
+            "facility_type": "ADP",
+            "vehicle": selected_vehicle,
+            "facility_id": selected_adp,
+        },
+    )
+
+
+def worst_adp_removal(
+    state: ALNSSolutionState,
+    instance: dict,
+    *,
+    lambda_value: float,
+    cost_bounds: tuple[float, float] | None,
+    emission_bounds: tuple[float, float] | None,
+    emission_factors: tuple[float, float] = (1.0, 1.0),
+) -> DestroyResult:
+    """
+    Paper destroy operator: Worst ADP Removal.
+
+    Evaluate each active DV-ADP pair by removing all parcels assigned to it.
+    Select the pair producing the greatest scalarized-objective saving.
+    """
+    candidates = _active_adp_pairs(state)
+
+    if not candidates:
+        raise ValueError(
+            "No active ADP pair is available for worst removal."
+        )
+
+    current_objective = _state_objective(
+        state,
+        instance,
+        lambda_value=lambda_value,
+        cost_bounds=cost_bounds,
+        emission_bounds=emission_bounds,
+        emission_factors=emission_factors,
+    )
+
+    scored = []
+
+    for vehicle, adp in candidates:
+        candidate_state = state.copy()
+
+        removed_customers = _customers_at_adp_pair(
+            candidate_state,
+            vehicle,
+            adp,
+        )
+
+        for customer_id in list(removed_customers):
+            remove_customer(
+                state=candidate_state,
+                instance=instance,
+                customer_id=customer_id,
+            )
+
+        candidate_objective = _state_objective(
+            candidate_state,
+            instance,
+            lambda_value=lambda_value,
+            cost_bounds=cost_bounds,
+            emission_bounds=emission_bounds,
+            emission_factors=emission_factors,
+        )
+
+        saving = current_objective - candidate_objective
+
+        scored.append(
+            (
+                saving,
+                vehicle,
+                adp,
+                removed_customers,
+                candidate_state,
+            )
+        )
+
+    (
+        saving,
+        selected_vehicle,
+        selected_adp,
+        removed_customers,
+        destroyed,
+    ) = max(
+        scored,
+        key=lambda item: (
+            item[0],
+            item[1],
+            item[2],
+        ),
+    )
+
+    destroyed.register_operator_event(
+        operator_type="destroy",
+        operator_name="worst_adp_removal",
+        details={
+            "vehicle": selected_vehicle,
+            "adp": selected_adp,
+            "objective_saving": saving,
+            "removed_customers": list(removed_customers),
+            "lambda_value": lambda_value,
+        },
+    )
+
+    return DestroyResult(
+        operator_name="worst_adp_removal",
+        state=destroyed,
+        removed_customers=list(removed_customers),
+        removed_route={
+            "facility_type": "ADP",
+            "vehicle": selected_vehicle,
+            "facility_id": selected_adp,
+            "objective_saving": saving,
+        },
+    )
+
+
+def _active_tns(
+    state: ALNSSolutionState,
+    instance: dict,
+) -> list[str]:
+    return sorted(
+        {
+            assignment["pickup"]
+            for assignment in state.assignments.values()
+            if assignment.get("mode") == "OD_HOME"
+            and assignment.get("pickup") in instance["tns"]
+        }
+    )
+
+
+def random_tn_removal(
+    state: ALNSSolutionState,
+    instance: dict,
+    *,
+    seed: int | None = None,
+    tn: str | None = None,
+) -> DestroyResult:
+    """
+    Paper destroy operator: Random TN Removal.
+
+    Select one active TN and remove every OD-served customer whose parcel is
+    picked up at that TN. Affected OD routes are deactivated when they no
+    longer serve customers, and the orphan TN is removed from all DV routes.
+    """
+    candidates = _active_tns(
+        state=state,
+        instance=instance,
+    )
+
+    if tn is not None:
+        candidates = [
+            candidate_tn
+            for candidate_tn in candidates
+            if candidate_tn == tn
+        ]
+
+    if not candidates:
+        raise ValueError(
+            "No active TN matches the removal request."
+        )
+
+    rng = random.Random(seed)
+    selected_tn = rng.choice(candidates)
+
+    destroyed = state.copy()
+
+    removed_customers = sorted(
+        customer
+        for customer, assignment in destroyed.assignments.items()
+        if assignment.get("mode") == "OD_HOME"
+        and assignment.get("pickup") == selected_tn
+    )
+
+    affected_drivers = sorted(
+        {
+            destroyed.assignments[customer]["driver"]
+            for customer in removed_customers
+        }
+    )
+
+    for customer_id in list(removed_customers):
+        remove_customer(
+            state=destroyed,
+            instance=instance,
+            customer_id=customer_id,
+        )
+
+    # Defensive cleanup in case multiple affected routes shared the TN.
+    for vehicle in instance["dvs"]:
+        destroyed.dv_routes[vehicle] = _remove_node_once(
+            destroyed.dv_routes.get(vehicle, []),
+            selected_tn,
+        )
+
+    destroyed.register_operator_event(
+        operator_type="destroy",
+        operator_name="random_tn_removal",
+        details={
+            "seed": seed,
+            "tn": selected_tn,
+            "affected_drivers": affected_drivers,
+            "removed_customers": list(removed_customers),
+        },
+    )
+
+    return DestroyResult(
+        operator_name="random_tn_removal",
+        state=destroyed,
+        removed_customers=removed_customers,
+        removed_route={
+            "facility_type": "TN",
+            "facility_id": selected_tn,
+            "affected_drivers": affected_drivers,
+        },
+    )
