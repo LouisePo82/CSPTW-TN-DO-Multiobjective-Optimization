@@ -1,0 +1,23 @@
+alns:
+  main_loop:
+    gate: ML-5A.2
+    paper_faithful: true
+    enhanced: false
+
+    historical_lifecycle:
+      initialize_from_initial_solution: true
+      snapshot_before_destroy: true
+      update_after_current_state_transition: true
+      aggregation: minimum_observed_position_cost
+      metric: two_arc_position_cost
+
+      observable_customers:
+        types: [1, 3]
+        modes: [DV_HOME, OD_HOME]
+
+      adp_behavior:
+        create_observation: false
+        erase_prior_history: false
+
+    multiobjective_extension:
+      applied_to_history_metric: false
