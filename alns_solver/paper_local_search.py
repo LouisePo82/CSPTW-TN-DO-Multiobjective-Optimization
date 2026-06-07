@@ -198,7 +198,7 @@ def _cross_fleet_candidates(detached, instance, customer, *, required_mode, lamb
 
 
 def move_inter_classic_crowd(state, instance, *, lambda_value, cost_bounds, emission_bounds,
-                             emission_factors=(1.0, 1.0), strategy_2_seed=None):
+                             emission_factors=(1.0, 1.0), strategy_2_seed=0):
     name = "move_inter_classic_crowd"
     base = _objective(state, instance, lambda_value=lambda_value, cost_bounds=cost_bounds,
                       emission_bounds=emission_bounds, emission_factors=emission_factors)
@@ -223,7 +223,7 @@ def move_inter_classic_crowd(state, instance, *, lambda_value, cost_bounds, emis
 
 
 def move_inter_crowd_classic(state, instance, *, lambda_value, cost_bounds, emission_bounds,
-                             emission_factors=(1.0, 1.0)):
+                             emission_factors=(1.0, 1.0), strategy_2_seed=0):
     name = "move_inter_crowd_classic"
     base = _objective(state, instance, lambda_value=lambda_value, cost_bounds=cost_bounds,
                       emission_bounds=emission_bounds, emission_factors=emission_factors)
@@ -236,7 +236,7 @@ def move_inter_crowd_classic(state, instance, *, lambda_value, cost_bounds, emis
             detached, instance, customer, required_mode="DV_HOME",
             lambda_value=lambda_value, cost_bounds=cost_bounds,
             emission_bounds=emission_bounds, emission_factors=emission_factors,
-            strategy_2_seed=None,
+            strategy_2_seed=strategy_2_seed,
         )
         for candidate in candidates:
             if candidate.objective < base - EPSILON:
