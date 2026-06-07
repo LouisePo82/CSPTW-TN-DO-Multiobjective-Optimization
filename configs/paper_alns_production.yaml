@@ -1,0 +1,27 @@
+scope_lock:
+  contribution: cost_emission_multiobjective_extension_via_F_lambda
+  paper_alns_unchanged: true
+  enhanced_alns: false
+  operator_redesign: false
+  fallback_heuristic: false
+  operator_resampling: false
+  applicable_subset_roulette: false
+
+production:
+  lambda_grid: [0.0, 0.2, 0.4, 0.6, 0.8, 1.0]
+  runs_per_lambda: 30
+  output_artifacts:
+    - run_config.json
+    - run_results.json
+    - run_results.csv
+    - iteration_history.csv
+    - operator_statistics.csv
+    - best_solution.json
+    - best_route_map.png
+    - vehicle_routes
+    - benchmark_outputs_consolidate.csv
+    - lambda_summary.csv
+    - cost_emission_tradeoff.png
+    - mean_cost_by_lambda.png
+    - mean_emission_by_lambda.png
+    - mean_runtime_by_lambda.png
