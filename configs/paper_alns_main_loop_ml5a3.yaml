@@ -1,0 +1,31 @@
+alns:
+  main_loop:
+    gate: ML-5A.3
+    paper_faithful: true
+    enhanced: false
+
+    removal_quantity:
+      lower_fraction: 0.10
+      upper_fraction: 0.40
+      integer_rounding:
+        lower: ceil
+        upper: floor
+      distribution: discrete_uniform_inclusive
+      minimum_quantity: 1
+      lambda_dependent: false
+
+    count_based_destroy_operators:
+      - random_customer_removal
+      - worst_customer_removal_deterministic
+      - worst_customer_removal_probabilistic
+      - related_removal_deterministic
+      - related_removal_probabilistic
+      - historical_node_removal
+      - neighborhood_removal
+      - node_neighborhood_removal
+
+    structural_destroy_operators:
+      - route_removal
+      - random_adp_removal
+      - worst_adp_removal
+      - random_tn_removal
