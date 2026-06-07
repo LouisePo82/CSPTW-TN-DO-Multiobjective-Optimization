@@ -1,0 +1,37 @@
+alns:
+  main_loop:
+    gate: ML-4
+    paper_faithful: true
+    enhanced: false
+
+    short_run:
+      iterations: 20
+      deterministic_seed: 42
+      controlled_destroy_operator: route_removal
+      controlled_repair_operator: best_insertion
+
+    integrated_components:
+      initial_solution: paper_algorithm_1
+      destroy: paper_route_removal
+      repair: best_insertion
+      local_search: paper_local_search
+      acceptance: paper_simulated_annealing
+      adaptive_rewards: paper_adaptive_weights
+      cooling: paper_geometric_cooling
+      objective: scalar_F_lambda
+
+    assertions:
+      every_candidate_valid: true
+      best_objective_non_increasing: true
+      current_transition_consistent: true
+      one_reward_record_per_iteration: true
+      one_cooling_step_per_iteration: true
+      fixed_seed_reproducible: true
+
+    excluded:
+      full_roulette_execution: true
+      full_operator_pool_execution: true
+      segment_boundary: true
+      experiment_runner: true
+      lambda_sweep: true
+      independent_30_runs: true

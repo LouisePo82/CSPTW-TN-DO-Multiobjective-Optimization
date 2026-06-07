@@ -648,3 +648,259 @@ def select_paper_operator_pair(
             in adaptive_state.repair_records.items()
         },
     )
+
+# =============================================================
+# ALNS Main Loop Fidelity ML-4 — Short Deterministic Integrated Run
+# =============================================================
+
+@dataclass
+class PaperALNSRunIterationLog:
+    iteration: int
+    destroy_operator: str
+    repair_operator: str
+    candidate_objective: float
+    current_objective_before: float
+    current_objective_after: float
+    best_objective_before: float
+    best_objective_after: float
+    accepted: bool
+    reward_event: str
+    reward: float
+    temperature_used: float
+    temperature_after_cooling: float
+    candidate_validator_pass: bool
+
+
+@dataclass
+class PaperALNSShortRunResult:
+    iterations: int
+    initial_state: ALNSSolutionState
+    final_current_state: ALNSSolutionState
+    final_best_state: ALNSSolutionState
+    initial_objective: float
+    final_current_objective: float
+    final_best_objective: float
+    iteration_logs: list[PaperALNSRunIterationLog]
+    adaptive_result: Any
+    simulated_annealing_result: Any
+    metadata: dict[str, Any]
+
+
+def run_paper_alns_short_integrated_run(
+    instance: dict,
+    *,
+    iterations: int,
+    seed: int,
+    lambda_value: float,
+    cost_bounds: tuple[float, float] | None,
+    emission_bounds: tuple[float, float] | None,
+    emission_factors: tuple[float, float] = (3.0, 1.0),
+) -> PaperALNSShortRunResult:
+    """
+    Run a short deterministic paper-component integration test.
+
+    The controlled operator pair remains:
+        paper Route Removal -> Best Insertion.
+
+    This gate validates multi-iteration state continuity. Full paper roulette
+    and complete operator-pool execution are handled separately by ML-3A/3B
+    and the later full-loop gate.
+    """
+    if iterations <= 0:
+        raise ValueError("iterations must be positive.")
+
+    initial_state = build_ml1_paper_initial_state(
+        instance,
+        seed=seed,
+        lambda_value=lambda_value,
+        cost_bounds=cost_bounds,
+        emission_bounds=emission_bounds,
+        emission_factors=emission_factors,
+    )
+
+    initial_solution = initial_state.to_core_solution(
+        instance=instance,
+        lambda_value=lambda_value,
+        objective_mode="weighted",
+        cost_bounds=cost_bounds,
+        emission_bounds=emission_bounds,
+        emission_factors=emission_factors,
+        require_complete=True,
+        metadata={"validation_scope": "ml4_initial"},
+    )
+
+    if not initial_solution.validator_pass:
+        raise RuntimeError(
+            "ML-4 initial state failed validation."
+        )
+
+    initial_objective = float(initial_solution.objective)
+    current_state = initial_state.copy()
+    best_state = initial_state.copy()
+    current_objective = initial_objective
+    best_objective = initial_objective
+
+    adaptive_result, sa_result = (
+        build_ml2_paper_controllers(
+            initial_objective=initial_objective,
+            destroy_operator_names=("route_removal",),
+            repair_operator_names=("best_insertion",),
+            seed=seed + 100_000,
+        )
+    )
+
+    logs: list[PaperALNSRunIterationLog] = []
+
+    for iteration in range(1, iterations + 1):
+        transition = run_one_paper_alns_iteration_ml2(
+            current_state,
+            best_state,
+            instance,
+            iteration=iteration,
+            current_objective=current_objective,
+            best_objective=best_objective,
+            lambda_value=lambda_value,
+            cost_bounds=cost_bounds,
+            emission_bounds=emission_bounds,
+            emission_factors=emission_factors,
+            destroy_seed=seed + iteration,
+            strategy_2_seed=seed + iteration,
+            sa_controller=sa_result.controller,
+        )
+
+        if not transition.candidate_pipeline.validator_pass:
+            raise RuntimeError(
+                f"ML-4 candidate invalid at iteration {iteration}."
+            )
+
+        current_state = transition.current_state_after
+        best_state = transition.best_state_after
+        current_objective = (
+            transition.current_objective_after
+        )
+        best_objective = transition.best_objective_after
+
+        logs.append(
+            PaperALNSRunIterationLog(
+                iteration=iteration,
+                destroy_operator=(
+                    transition.candidate_pipeline
+                    .destroy_operator
+                ),
+                repair_operator=(
+                    transition.candidate_pipeline
+                    .repair_operator
+                ),
+                candidate_objective=(
+                    transition.candidate_pipeline
+                    .candidate_objective
+                ),
+                current_objective_before=(
+                    transition.current_objective_before
+                ),
+                current_objective_after=(
+                    transition.current_objective_after
+                ),
+                best_objective_before=(
+                    transition.best_objective_before
+                ),
+                best_objective_after=(
+                    transition.best_objective_after
+                ),
+                accepted=transition.accepted,
+                reward_event=transition.reward_event,
+                reward=transition.reward,
+                temperature_used=(
+                    transition.temperature_used
+                ),
+                temperature_after_cooling=(
+                    transition.temperature_after_cooling
+                ),
+                candidate_validator_pass=(
+                    transition.candidate_pipeline
+                    .validator_pass
+                ),
+            )
+        )
+
+    final_current = current_state.to_core_solution(
+        instance=instance,
+        lambda_value=lambda_value,
+        objective_mode="weighted",
+        cost_bounds=cost_bounds,
+        emission_bounds=emission_bounds,
+        emission_factors=emission_factors,
+        require_complete=True,
+        metadata={"validation_scope": "ml4_final_current"},
+    )
+    final_best = best_state.to_core_solution(
+        instance=instance,
+        lambda_value=lambda_value,
+        objective_mode="weighted",
+        cost_bounds=cost_bounds,
+        emission_bounds=emission_bounds,
+        emission_factors=emission_factors,
+        require_complete=True,
+        metadata={"validation_scope": "ml4_final_best"},
+    )
+
+    if not final_current.validator_pass:
+        raise RuntimeError(
+            "ML-4 final current state failed validation."
+        )
+    if not final_best.validator_pass:
+        raise RuntimeError(
+            "ML-4 final best state failed validation."
+        )
+
+    if abs(
+        float(final_current.objective)
+        - current_objective
+    ) > 1e-10:
+        raise RuntimeError(
+            "ML-4 current state/objective became inconsistent."
+        )
+
+    if abs(
+        float(final_best.objective)
+        - best_objective
+    ) > 1e-10:
+        raise RuntimeError(
+            "ML-4 best state/objective became inconsistent."
+        )
+
+    return PaperALNSShortRunResult(
+        iterations=iterations,
+        initial_state=initial_state,
+        final_current_state=current_state,
+        final_best_state=best_state,
+        initial_objective=initial_objective,
+        final_current_objective=current_objective,
+        final_best_objective=best_objective,
+        iteration_logs=logs,
+        adaptive_result=adaptive_result,
+        simulated_annealing_result=sa_result,
+        metadata={
+            "paper_faithful": True,
+            "enhanced": False,
+            "run_scope": (
+                "short_deterministic_component_integration"
+            ),
+            "controlled_destroy_operator": (
+                "route_removal"
+            ),
+            "controlled_repair_operator": (
+                "best_insertion"
+            ),
+            "local_search_mode": "paper_local_search",
+            "acceptance_mode": (
+                "paper_simulated_annealing"
+            ),
+            "adaptive_mode": (
+                "paper_adaptive_weights"
+            ),
+            "objective_input": "scalar_F_lambda",
+            "full_roulette_execution": False,
+            "experiment_runner": False,
+        },
+    )
