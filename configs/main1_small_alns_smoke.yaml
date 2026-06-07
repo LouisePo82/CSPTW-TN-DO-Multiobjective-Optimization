@@ -1,0 +1,36 @@
+experiment:
+  type: alns_multiobjective
+  name: small_alns_smoke
+
+instance:
+  path: data/small/instance_001
+  id: instance_001
+  size: small
+
+alns:
+  lambdas: [0.0, 0.5, 1.0]
+  seeds: [2026]
+  iterations: 20
+
+normalization:
+  source: exact_objective_extremes
+  cost_min: 23.089059445460528
+  cost_max: 24.28427622523578
+  emission_min: 77.85476672718833
+  emission_max: 79.22375667475296
+
+emission:
+  dv_factor: 3.0
+  od_factor: 1.0
+
+output:
+  root_dir: outputs/main1_alns_smoke
+  consolidate: true
+
+scope_lock:
+  paper_alns_unchanged: true
+  objective_extension: scalar_F_lambda
+  enhanced_alns: false
+  fallback_heuristic: false
+  operator_substitution: false
+  operator_resampling: false

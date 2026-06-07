@@ -18,7 +18,7 @@ def main():
     summary=create_lambda_summary(consolidated,root/"lambda_summary.csv")
     plot_cost_emission_tradeoff(summary,root/"cost_emission_tradeoff.png")
     plot_metric_by_lambda(summary,"mean_cost",root/"mean_cost_by_lambda.png","Mean total cost")
-    plot_metric_by_lambda(summary,"mean_emission",root/"mean_emission_by_lambda.png","Mean environmental impact")
+    plot_metric_by_lambda(summary,"mean_emission",root/"mean_emission_by_lambda.png","Mean emission proxy")
     plot_metric_by_lambda(summary,"mean_runtime_seconds",root/"mean_runtime_by_lambda.png","Mean runtime (seconds)")
     print(f"Consolidated: {consolidated}"); print(f"Summary: {root/'lambda_summary.csv'}")
 

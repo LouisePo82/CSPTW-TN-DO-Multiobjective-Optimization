@@ -263,7 +263,7 @@ def plot_cost_emission_tradeoff(
         "Mean total cost"
     )
     axis.set_ylabel(
-        "Mean environmental impact"
+        "Mean emission proxy"
     )
     axis.grid(
         True,
