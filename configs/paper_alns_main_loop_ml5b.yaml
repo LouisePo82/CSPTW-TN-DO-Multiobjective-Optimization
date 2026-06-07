@@ -1,0 +1,44 @@
+alns:
+  main_loop:
+    gate: ML-5B
+    paper_faithful: true
+    enhanced: false
+
+    integration:
+      iterations: 36
+      seed: 2026
+      roulette:
+        destroy_pool_size: 12
+        repair_pool_size: 6
+        full_paper_pools: true
+      removal_quantity:
+        paper_sampler: true
+      destroy_dispatch:
+        paper_dispatcher: true
+      repair_dispatch:
+        paper_dispatcher: true
+        strategy_2_mode: paper_random_dv
+        perturbation_factor: 0.275
+      local_search:
+        mode: paper_local_search
+        delta_ls: 0.1
+      acceptance:
+        mode: paper_simulated_annealing
+        cooling_rate: 0.9994
+      adaptive_weights:
+        mode: paper_adaptive_weights
+        segment_length: 300
+      history:
+        metric: two_arc_position_cost
+        update_after_current_transition: true
+      objective:
+        input: scalar_F_lambda
+
+    test_fixture_router:
+      purpose: ensure_selected_operator_is_applicable
+      production_policy: false
+      substitution: false
+      fallback: false
+
+    unresolved:
+      general_production_inapplicability_policy: true
