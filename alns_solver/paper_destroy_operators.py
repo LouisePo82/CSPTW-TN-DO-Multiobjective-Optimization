@@ -733,9 +733,12 @@ def current_position_cost(
     customer: str,
 ) -> float:
     """
-    Current marginal route contribution:
+    Paper Historical Node Removal position cost:
 
-        c(prev,i) + c(i,next) - c(prev,next)
+        f_i = c(prev,i) + c(i,next)
+
+    This deliberately differs from the marginal route contribution used by
+    Neighborhood Removal.
     """
     _, _, route = _find_customer_route(
         state,
@@ -760,7 +763,6 @@ def current_position_cost(
     return (
         float(instance["distance"][prev_node][customer])
         + float(instance["distance"][customer][next_node])
-        - float(instance["distance"][prev_node][next_node])
     )
 
 

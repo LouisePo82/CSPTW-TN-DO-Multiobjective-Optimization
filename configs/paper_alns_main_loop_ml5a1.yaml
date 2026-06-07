@@ -1,0 +1,14 @@
+alns:
+  main_loop:
+    gate: ML-5A.1
+    paper_faithful: true
+    enhanced: false
+
+    historical_node_removal:
+      formula: c_prev_i_plus_c_i_next
+      subtract_bypass_arc: false
+      objective_extension_applied: false
+
+    neighborhood_removal:
+      metric: route_cost_before_minus_route_cost_after
+      unchanged: true

@@ -239,7 +239,7 @@ def main() -> None:
         },
         "historical_contract": {
             "explicit_context_required": True,
-            "metric": "marginal_route_distance",
+            "metric": "two_arc_position_cost",
             "multiobjective_override": False,
         },
         "paper_faithful": True,
