@@ -1,0 +1,27 @@
+alns:
+  main_loop:
+    gate: ML-5A.4
+    paper_faithful: true
+    enhanced: false
+
+    destroy_execution_coverage:
+      expected_entries: 12
+      fixtures:
+        general_home: mixed_home_state
+        active_adp: cost_anchor_state
+        active_tn: emission_anchor_state
+      repair_after_destroy: regret_3
+      strategy_2_mode: paper_random_dv
+
+    repair_execution_coverage:
+      expected_entries: 6
+      common_partial_state: active_adp_removed
+      strategy_2_mode: paper_random_dv
+      perturbation_factor: 0.275
+
+    excluded_behaviors:
+      fallback: true
+      operator_substitution: true
+      applicable_subset_roulette: true
+      sequential_full_pool_run: true
+      experiment_runner: true
