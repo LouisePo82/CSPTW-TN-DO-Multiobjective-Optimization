@@ -1,0 +1,50 @@
+{
+  "instance_id": "c101_25_derived",
+  "scale": "small",
+  "source": "Solomon VRPTW",
+  "source_instance": "C101",
+  "source_file": "data/solomon/raw/solomon-100/In/c101.txt",
+  "customer_count": 25,
+  "dv_count": 4,
+  "od_count": 2,
+  "adp_count": 2,
+  "tn_count": 1,
+  "customer_type_counts": {
+    "1": 9,
+    "2": 8,
+    "3": 8
+  },
+  "derived_model": "CSPTW-TN-DO",
+  "generation_seed": 2026,
+  "generator_version": "solomon_extension_v1",
+  "benchmark_classification": "Solomon-spatially-derived CSPTW-TN-DO",
+  "preserved_source_fields": [
+    "customer coordinates",
+    "customer ordering",
+    "depot coordinates",
+    "source instance identity"
+  ],
+  "demand_transformation": {
+    "source_field": "Solomon demand",
+    "native_rule": "one parcel unit per customer",
+    "reason": "match the implemented CSPTW-TN-DO capacity semantics"
+  },
+  "time_window_transformation": {
+    "source_fields": [
+      "Solomon ready time",
+      "Solomon due time"
+    ],
+    "native_rule": "common depot operating horizon",
+    "horizon_start": 0.0,
+    "horizon_end": 1236.0,
+    "reason": "retain compatibility with the paper-faithful construction heuristic and shared final validator"
+  },
+  "source_demand_summary": {
+    "minimum": 10.0,
+    "maximum": 40.0,
+    "total": 460.0
+  },
+  "source_time_window_note": "Original customer-specific Solomon windows are preserved only as source provenance and are not used as native route constraints.",
+  "service_time_note": "Native model uses service_time_per_weight; Solomon node-specific service time is not copied directly.",
+  "purpose": "Solomon-spatially-derived CSPTW-TN-DO exact and paper-faithful ALNS benchmark"
+}
