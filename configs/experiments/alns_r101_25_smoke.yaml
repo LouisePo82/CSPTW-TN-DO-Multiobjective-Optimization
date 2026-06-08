@@ -1,0 +1,25 @@
+experiment:
+  type: alns_multiobjective
+
+instance:
+  path: data/solomon/derived/r101_25
+  id: r101_25_derived
+
+alns:
+  lambdas: [0.5]
+  seeds: [2026]
+  iterations: 20
+
+normalization:
+  cost_min: 184.0117631076989
+  cost_max: 326.62958547752356
+  emission_min: 614.8880950902634
+  emission_max: 1037.2487167754932
+
+emission:
+  dv_factor: 3.0
+  od_factor: 1.0
+
+output:
+  root_dir: outputs/smoke/alns_r101_25
+  consolidate: true

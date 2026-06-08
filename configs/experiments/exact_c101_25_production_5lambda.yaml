@@ -1,0 +1,23 @@
+experiment_name: exact_c101_25_production_5lambda
+instance_path: data/solomon/derived/c101_25
+solver: exact
+experiment_type: exact_multiobjective
+
+objective:
+  mode: weighted
+  emission_factor_dv: 3.0
+  emission_factor_od: 1.0
+  lambda_values: [0.0, 0.25, 0.5, 0.75, 1.0]
+  epsilon_levels: 1
+
+exact:
+  time_limit_sec: 300
+  mip_gap: 0.05
+  enable_output: false
+  require_optimal: false
+
+output:
+  root_dir: outputs/production/exact_c101_25_5lambda
+  save_solution_details: true
+  save_charts: true
+  save_instance_snapshot: true
