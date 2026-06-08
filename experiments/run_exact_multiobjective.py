@@ -29,16 +29,38 @@ def _assert_exact_ground_truth(
     *,
     label: str,
     solution,
+    require_optimal: bool = True,
 ) -> None:
+    """
+    Validate whether an exact-solver result is usable.
+
+    Production ground-truth runs require OPTIMAL status by
+    default. Time-limited smoke or bounded benchmark runs may
+    explicitly allow a valid FEASIBLE incumbent, while preserving
+    its non-optimal status and reported MIP gap.
+    """
+    accepted_statuses = (
+        {"OPTIMAL"}
+        if require_optimal
+        else {"OPTIMAL", "FEASIBLE"}
+    )
+
     if (
-        solution.status != "OPTIMAL"
+        solution.status not in accepted_statuses
         or not solution.validator_pass
     ):
+        policy = (
+            "OPTIMAL"
+            if require_optimal
+            else "OPTIMAL or FEASIBLE"
+        )
+
         raise RuntimeError(
-            f"{label} failed ground-truth "
-            f"requirements: status="
-            f"{solution.status}, errors="
-            f"{solution.validation_errors}"
+            f"{label} failed exact-result "
+            f"requirements: expected={policy}, "
+            f"status={solution.status}, "
+            f"gap={solution.optimality_gap}, "
+            f"errors={solution.validation_errors}"
         )
 
 
@@ -90,6 +112,9 @@ def _resolved_config(
             "enable_output": (
                 config.exact
                 .enable_output
+            ),
+            "require_optimal": bool(
+                config.exact.require_optimal
             ),
         },
         "output": {
@@ -240,9 +265,19 @@ def run_exact_multiobjective(
         ),
     )
 
-    exact_config = vars(
-        config.exact
+    require_optimal = bool(
+        config.exact.require_optimal
     )
+
+    # Runner-only acceptance policy must not be
+    # forwarded to the exact solver.
+    exact_config = {
+        key: value
+        for key, value in vars(
+            config.exact
+        ).items()
+        if key != "require_optimal"
+    }
 
     cost_anchor = solver.solve(
         instance,
@@ -277,6 +312,7 @@ def run_exact_multiobjective(
         _assert_exact_ground_truth(
             label=label,
             solution=solution,
+            require_optimal=require_optimal,
         )
 
         out.save_solution(
@@ -400,6 +436,7 @@ def run_exact_multiobjective(
                 f"{lambda_value:g}"
             ),
             solution=solution,
+            require_optimal=require_optimal,
         )
 
         label = (
@@ -611,6 +648,7 @@ def run_exact_multiobjective(
                 f"{epsilon_value}"
             ),
             solution=solution,
+            require_optimal=require_optimal,
         )
 
         row = {

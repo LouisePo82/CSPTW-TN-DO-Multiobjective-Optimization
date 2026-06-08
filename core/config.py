@@ -17,6 +17,7 @@ class ExactConfig:
     time_limit_sec: int = 300
     mip_gap: float = 0.0
     enable_output: bool = False
+    require_optimal: bool = True
 
 @dataclass
 class ALNSConfig:

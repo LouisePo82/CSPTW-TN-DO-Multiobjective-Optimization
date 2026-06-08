@@ -57,8 +57,34 @@ class ExactSolver:
             validator_pass=validation["valid"],
             validation_errors=validation["errors"],
             metadata={
-                "solver_version": raw.get("solver_version"),
-                "best_bound": raw.get("best_bound"),
-                "raw_solver_times": raw.get("times"),
+                "solver_version": raw.get(
+                    "solver_version"
+                ),
+                "best_bound": raw.get(
+                    "best_bound"
+                ),
+                "absolute_mip_gap": raw.get(
+                    "mip_gap_abs"
+                ),
+                "relative_mip_gap": raw.get(
+                    "mip_gap_rel"
+                ),
+                "relative_mip_gap_percent": (
+                    raw.get(
+                        "mip_gap_percent"
+                    )
+                ),
+                "optimality_gap_semantics": (
+                    "absolute_objective_gap"
+                ),
+                "configured_mip_gap_target": (
+                    solver_config.get(
+                        "mip_gap",
+                        0.0,
+                    )
+                ),
+                "raw_solver_times": raw.get(
+                    "times"
+                ),
             },
         )

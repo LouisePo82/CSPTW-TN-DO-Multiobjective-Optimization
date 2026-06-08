@@ -612,13 +612,33 @@ def solve_exact_milp(
         value = float(value)
         return 0.0 if abs(value) < tol else value
 
+    objective_value = clean_number(
+        solver.Objective().Value()
+    )
+    best_bound = clean_number(
+        solver.Objective().BestBound()
+    )
+    mip_gap_abs = clean_number(
+        abs(
+            objective_value
+            - best_bound
+        )
+    )
+    mip_gap_rel = (
+        mip_gap_abs
+        / max(
+            abs(objective_value),
+            1e-12,
+        )
+    )
+
     return {
         "status": status_name,
         "objective_mode": objective_mode,
         "lambda": lambda_val,
         "cost": clean_number(total_cost.solution_value()),
         "emission": clean_number(total_emission.solution_value()),
-        "objective": clean_number(solver.Objective().Value()),
+        "objective": objective_value,
         "dv_distance": clean_number(dv_distance.solution_value()),
         "od_extra_distance": clean_number(total_od_extra.solution_value()),
         "routes": {**dv_routes, **od_routes},
@@ -635,6 +655,10 @@ def solve_exact_milp(
         "active_arcs": {"dv": active_x, "od": active_y},
         "comp_time_sec": elapsed,
         "solver_version": solver.SolverVersion(),
-        "best_bound": clean_number(solver.Objective().BestBound()),
-        "mip_gap_abs": clean_number(abs(solver.Objective().Value() - solver.Objective().BestBound())),
+        "best_bound": best_bound,
+        "mip_gap_abs": mip_gap_abs,
+        "mip_gap_rel": mip_gap_rel,
+        "mip_gap_percent": (
+            100.0 * mip_gap_rel
+        ),
     }

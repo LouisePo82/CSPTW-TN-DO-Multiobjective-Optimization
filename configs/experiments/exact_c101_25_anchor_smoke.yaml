@@ -1,0 +1,23 @@
+experiment_name: exact_c101_25_anchor_smoke
+instance_path: data/solomon/derived/c101_25
+solver: exact
+experiment_type: exact_multiobjective
+
+objective:
+  mode: weighted
+  emission_factor_dv: 3.0
+  emission_factor_od: 1.0
+  lambda_values: [0.5]
+  epsilon_levels: 1
+
+exact:
+  time_limit_sec: 60
+  mip_gap: 0.05
+  enable_output: false
+  require_optimal: false
+
+output:
+  root_dir: outputs/exact_c101_25_smoke
+  save_solution_details: true
+  save_charts: true
+  save_instance_snapshot: true
