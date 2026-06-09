@@ -835,18 +835,39 @@ def paper_local_search_eligible(
     if delta_ls < 0:
         raise ValueError("delta_ls must be non-negative.")
 
-    if best_objective < 0:
-        raise ValueError(
-            "best_objective must be non-negative for the paper gap rule."
-        )
+    working_value = float(
+        working_objective
+    )
+    best_value = float(
+        best_objective
+    )
+    tolerance_value = float(
+        tolerance
+    )
+
+    # Sign-safe extension of the paper gap rule.
+    #
+    # For non-negative objectives, this is exactly:
+    #   working <= (1 + delta_ls) * best
+    #
+    # For negative normalized objectives, it preserves
+    # the intended relative-deterioration interpretation
+    # without reversing the eligibility boundary.
+    reference_scale = max(
+        abs(best_value),
+        tolerance_value,
+    )
 
     upper_bound = (
-        1.0 + float(delta_ls)
-    ) * float(best_objective)
+        best_value
+        + float(delta_ls)
+        * reference_scale
+    )
 
     return (
-        float(working_objective)
-        <= upper_bound + float(tolerance)
+        working_value
+        <= upper_bound
+        + tolerance_value
     )
 
 
