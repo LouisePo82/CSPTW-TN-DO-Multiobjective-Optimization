@@ -284,7 +284,13 @@ def _partial_solution_is_valid(
             return False
 
     # DV capacity.
-    dv_loads = state._compute_vehicle_loads(instance)
+    # Use the same load semantics as the shared final
+    # validator, including OD handoff demand at every TN
+    # visited by a dedicated vehicle.
+    dv_loads = _validator_contract_dv_loads(
+        state,
+        instance,
+    )
 
     for vehicle, load in dv_loads.items():
         capacity = float(
@@ -387,13 +393,107 @@ def _od_insert_positions(route: list[str]) -> range:
     return range(2, len(route))
 
 
+def _validator_contract_dv_loads(
+    state: ALNSSolutionState,
+    instance: dict,
+) -> dict[str, float]:
+    """
+    Reproduce the shared validator's DV-capacity semantics.
+
+    A DV carries its direct-home and ADP assignments.
+    It also carries the full handoff demand of every active
+    OD whose TN pickup is visited by that DV route.
+    """
+    loads = {
+        vehicle: 0.0
+        for vehicle in instance["dvs"]
+    }
+
+    for customer, assignment in state.assignments.items():
+        mode = assignment.get("mode")
+        vehicle = assignment.get("vehicle")
+
+        if (
+            mode in {"DV_HOME", "ADP"}
+            and vehicle in loads
+        ):
+            loads[vehicle] += float(
+                instance["nodes"][customer][
+                    "demand"
+                ]
+            )
+
+    for vehicle in instance["dvs"]:
+        dv_route = state.dv_routes.get(
+            vehicle,
+            [],
+        )
+
+        for driver in instance["ods"]:
+            od_route = state.od_routes.get(
+                driver,
+                [],
+            )
+
+            if not od_route:
+                continue
+
+            pickup = next(
+                (
+                    tn
+                    for tn in instance["tns"]
+                    if tn in od_route
+                ),
+                None,
+            )
+
+            if (
+                pickup is None
+                or pickup not in dv_route
+            ):
+                continue
+
+            loads[vehicle] += sum(
+                float(
+                    instance["nodes"][customer][
+                        "demand"
+                    ]
+                )
+                for customer, assignment
+                in state.assignments.items()
+                if (
+                    assignment.get("mode")
+                    == "OD_HOME"
+                    and assignment.get("driver")
+                    == driver
+                    and assignment.get("pickup")
+                    == pickup
+                )
+            )
+
+    return loads
+
+
 def _current_dv_load(
     state: ALNSSolutionState,
     instance: dict,
     vehicle: str,
 ) -> float:
+    """
+    Return the DV load using the same capacity semantics
+    as the shared final validator.
+
+    This includes DV-home demand, ADP demand, and the full
+    handoff demand of every OD using a TN visited by the DV.
+    """
     return float(
-        state._compute_vehicle_loads(instance).get(vehicle, 0.0)
+        _validator_contract_dv_loads(
+            state,
+            instance,
+        ).get(
+            vehicle,
+            0.0,
+        )
     )
 
 
@@ -614,6 +714,37 @@ def _enumerate_existing_od_candidates(
                 },
             )
 
+            # Adding a customer to an existing OD route
+            # increases the handoff demand at its TN pickup.
+            # Reject the insertion if it would violate the
+            # shared validator's DV-capacity contract.
+            if pickup in instance["tns"]:
+                dv_loads = (
+                    _validator_contract_dv_loads(
+                        candidate_state,
+                        instance,
+                    )
+                )
+
+                capacity_violated = any(
+                    float(
+                        dv_loads.get(
+                            vehicle,
+                            0.0,
+                        )
+                    )
+                    > float(
+                        instance["vehicles"][
+                            vehicle
+                        ]["capacity"]
+                    )
+                    + 1e-9
+                    for vehicle in instance["dvs"]
+                )
+
+                if capacity_violated:
+                    continue
+
             candidate = _candidate_from_state(
                 customer_id=customer_id,
                 mode="OD_HOME",
@@ -770,6 +901,33 @@ def _enumerate_inactive_od_active_pickup_candidates(
                     "pickup": pickup,
                 },
             )
+
+            if pickup in instance["tns"]:
+                dv_loads = (
+                    _validator_contract_dv_loads(
+                        candidate_state,
+                        instance,
+                    )
+                )
+
+                capacity_violated = any(
+                    float(
+                        dv_loads.get(
+                            vehicle,
+                            0.0,
+                        )
+                    )
+                    > float(
+                        instance["vehicles"][
+                            vehicle
+                        ]["capacity"]
+                    )
+                    + 1e-9
+                    for vehicle in instance["dvs"]
+                )
+
+                if capacity_violated:
+                    continue
 
             candidate = _candidate_from_state(
                 customer_id=customer_id,

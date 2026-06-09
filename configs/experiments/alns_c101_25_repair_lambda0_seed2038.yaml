@@ -1,0 +1,25 @@
+experiment:
+  type: alns_multiobjective
+
+instance:
+  path: data/solomon/derived/c101_25
+  id: c101_25_derived
+
+alns:
+  lambdas: [0.0]
+  seeds: [2038]
+  iterations: 301
+
+normalization:
+  cost_min: 138.62039433248088
+  cost_max: 140.10651602953496
+  emission_min: 445.8607181014734
+  emission_max: 450.764045977897
+
+emission:
+  dv_factor: 3.0
+  od_factor: 1.0
+
+output:
+  root_dir: outputs/repair/alns_c101_25_lambda0_seed2038
+  consolidate: true
