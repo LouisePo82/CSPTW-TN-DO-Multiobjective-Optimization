@@ -124,37 +124,27 @@ The production configuration does not use:
 
 The production experiments use the following normalized scalar objective:
 
-```math
-F_{\lambda}
-=
-(1-\lambda)\widehat{C}
-+
-\lambda\widehat{E}
+```text
+F_lambda = (1 - lambda) * C_hat + lambda * E_hat
 ```
 
 where:
 
-- $\widehat{C}$ is the normalized distribution cost;
-- $\widehat{E}$ is the normalized operational emissions;
-- $\lambda = 0$ represents a cost-oriented objective;
-- $\lambda = 1$ represents an emission-oriented objective.
+* `C_hat` is the normalized distribution cost;
+* `E_hat` is the normalized operational emissions;
+* `lambda = 0` represents a cost-oriented objective;
+* `lambda = 1` represents an emission-oriented objective.
 
 The normalized cost is calculated as:
 
-```math
-\widehat{C}
-=
-\frac{C-C^{\mathrm{ideal}}}
-{C^{\mathrm{nadir}}-C^{\mathrm{ideal}}}
+```text
+C_hat = (C - C_ideal) / (C_nadir - C_ideal)
 ```
 
 The normalized emissions are calculated as:
 
-```math
-\widehat{E}
-=
-\frac{E-E^{\mathrm{ideal}}}
-{E^{\mathrm{nadir}}-E^{\mathrm{ideal}}}
+```text
+E_hat = (E - E_ideal) / (E_nadir - E_ideal)
 ```
 
 The tested lambda values are:
@@ -164,6 +154,7 @@ The tested lambda values are:
 ```
 
 The normalization values are empirical anchors obtained from validated calibration solutions. They are not claimed to be globally proven theoretical ideal or nadir points.
+
 ````
 
 ---
