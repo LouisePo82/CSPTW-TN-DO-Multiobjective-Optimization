@@ -6,3 +6,37 @@ __pycache__/
 
 # Generated outputs
 outputs/
+
+# Local environments and generated system files
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+.ipynb_checkpoints/
+.pytest_cache/
+
+# Local Python environments
+.venv/
+venv/
+env/
+
+# Python caches
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+
+# IDE and operating-system files
+.DS_Store
+Thumbs.db
+.ipynb_checkpoints/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+~$*
+
+# Local archive files stored under outputs
+outputs/**/*.zip
