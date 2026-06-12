@@ -1,4 +1,4 @@
-# Multi-Objective CSPTW-TN-DO Optimization
+# An Emission-Aware Extension of the Crowd-Shipping Problem with Time Windows, Transshipment Nodes, and Delivery Options
 
 This repository contains the source code, project documents, retained experimental evidence, and reproducibility materials developed for the course **Optimization Models and Applications**.
 
